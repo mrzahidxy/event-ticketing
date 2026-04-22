@@ -1,0 +1,38 @@
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Node
+**/node_modules/
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+**/pnpm-debug.log*
+**/logs/
+**/*.log
+
+# Build outputs
+**/dist/
+**/.next/
+**/coverage/
+**/.cache/
+**/.turbo/
+**/tmp/
+**/.temp/
+
+# Env files
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.local.example
+
+# Misc
+**/*.tsbuildinfo
+*.swp
+*.swo
+
+# Codex
+**/.codex
+**/.codex/

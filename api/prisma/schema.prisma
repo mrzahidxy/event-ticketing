@@ -1,0 +1,267 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  name         String?
+  passwordHash String
+  role         Role     @default(USER)
+  permissions  String[] @default([])
+
+  // Existing relations
+  bookings             Booking[]
+  ticketCheckins       TicketCheckin[]
+  ownedOrganizer       Organizer?            @relation("OrganizerOwner")
+  organizerMemberships OrganizerMembership[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Organizer {
+  id          String    @id @default(uuid()) @db.Uuid
+  name        String
+  ownerId     Int       @unique
+  isSuspended Boolean   @default(false)
+  suspendedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  owner       User                  @relation("OrganizerOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  events      Event[]
+  bookings    Booking[]
+  memberships OrganizerMembership[]
+}
+
+model OrganizerMembership {
+  organizerId String        @db.Uuid
+  userId      Int
+  role        OrganizerRole @default(STAFF)
+  assignedAt  DateTime      @default(now())
+
+  organizer Organizer @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([organizerId, userId])
+  @@index([userId])
+  @@index([organizerId, role])
+}
+
+model Event {
+  id          String @id @default(uuid()) @db.Uuid
+  organizerId String @db.Uuid
+
+  name        String
+  slug        String?   @unique
+  description String?
+  location    String?
+  startsAt    DateTime?
+  endsAt      DateTime?
+
+  isPublished Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  organizer   Organizer    @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+  ticketTiers TicketTier[]
+  bookings    Booking[]
+  tickets     Ticket[]
+
+  @@unique([organizerId, name])
+  @@index([organizerId])
+  @@index([isPublished])
+}
+
+model TicketTier {
+  id      Int    @id @default(autoincrement())
+  eventId String @db.Uuid
+
+  name          String
+  description   String?
+  price         Decimal   @db.Decimal(10, 2)
+  currency      String    @default("usd")
+  quantityTotal Int?
+  quantitySold  Int       @default(0)
+  salesStartAt  DateTime?
+  salesEndAt    DateTime?
+  isActive      Boolean   @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  event        Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  bookingItems BookingItem[]
+  tickets      Ticket[]
+
+  @@unique([eventId, name])
+  @@index([eventId])
+  @@index([eventId, isActive])
+}
+
+model Booking {
+  id Int @id @default(autoincrement())
+
+  userId      Int?
+  organizerId String @db.Uuid
+  eventId     String @db.Uuid
+
+  fullName String
+  email    String
+  phone    String?
+
+  subtotalAmount Decimal @db.Decimal(10, 2)
+  totalAmount    Decimal @db.Decimal(10, 2)
+  currency       String  @default("usd")
+
+  status BookingStatus @default(PENDING)
+  notes  String?
+
+  confirmedAt DateTime?
+  cancelledAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  organizer Organizer @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+  event     Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  items    BookingItem[]
+  payments Payment[]
+  tickets  Ticket[]
+
+  @@index([userId])
+  @@index([organizerId])
+  @@index([eventId])
+  @@index([email])
+  @@index([status])
+}
+
+model BookingItem {
+  id           Int @id @default(autoincrement())
+  bookingId    Int
+  ticketTierId Int
+
+  tierNameSnapshot  String
+  unitPriceSnapshot Decimal @db.Decimal(10, 2)
+  quantity          Int
+  lineTotal         Decimal @db.Decimal(10, 2)
+
+  createdAt DateTime @default(now())
+
+  booking    Booking    @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  ticketTier TicketTier @relation(fields: [ticketTierId], references: [id], onDelete: Restrict)
+
+  @@index([bookingId])
+  @@index([ticketTierId])
+}
+
+model Payment {
+  id        Int @id @default(autoincrement())
+  bookingId Int
+
+  amount   Decimal       @db.Decimal(10, 2)
+  currency String
+  status   PaymentStatus @default(PENDING)
+
+  stripeCheckoutSessionId String    @unique
+  stripePaymentIntentId   String?
+  stripeChargeId          String?
+  webhookConfirmedAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@index([status])
+}
+
+model Ticket {
+  id           String @id @default(uuid()) @db.Uuid
+  bookingId    Int
+  eventId      String @db.Uuid
+  ticketTierId Int
+
+  code      String @unique
+  qrPayload String @unique
+
+  attendeeName  String?
+  attendeeEmail String?
+
+  status      TicketStatus @default(ISSUED)
+  issuedAt    DateTime     @default(now())
+  checkedInAt DateTime?
+  voidedAt    DateTime?
+
+  booking    Booking         @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  event      Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  ticketTier TicketTier      @relation(fields: [ticketTierId], references: [id], onDelete: Restrict)
+  checkins   TicketCheckin[]
+
+  @@index([bookingId])
+  @@index([eventId])
+  @@index([ticketTierId])
+  @@index([status])
+}
+
+model TicketCheckin {
+  id                Int           @id @default(autoincrement())
+  ticketId          String        @db.Uuid
+  checkedInByUserId Int?
+  checkedInAt       DateTime      @default(now())
+  scanSource        CheckinSource @default(QR)
+  notes             String?
+
+  ticket          Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  checkedInByUser User?  @relation(fields: [checkedInByUserId], references: [id], onDelete: SetNull)
+
+  @@index([ticketId])
+  @@index([checkedInByUserId])
+}
+
+enum Role {
+  USER
+  STAFF
+  OWNER
+  ADMIN
+}
+
+enum OrganizerRole {
+  OWNER
+  STAFF
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+}
+
+enum TicketStatus {
+  ISSUED
+  CHECKED_IN
+  VOIDED
+  CANCELLED
+}
+
+enum CheckinSource {
+  QR
+  MANUAL
+}

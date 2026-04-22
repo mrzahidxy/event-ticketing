@@ -1,0 +1,847 @@
+import { BookingStatus, Prisma, Role } from '@prisma/client';
+
+import {
+  CreateBookingInput,
+  CreatePublicBookingInput,
+  UpdateBookingInput,
+  ListBookingsQuery,
+} from '../schemas/booking.schema';
+import { HttpError } from '../utils/http-error';
+import { prisma } from '../utils/prisma';
+import { AuthenticatedUser } from '../types/user';
+import { cache } from '../utils/cache';
+import { logger } from '../utils/logger';
+import { resolveOrganizerTenantScope } from './tenant-scope.service';
+
+const DEFAULT_PAGE = 1;
+const DEFAULT_LIMIT = 10;
+const MAX_LIMIT = 100;
+const CACHE_TTL_SECONDS = 60;
+const BOOKING_CACHE_TTL_SECONDS = 60 * 5;
+
+const BOOKING_STATUS_VALUES = new Set(Object.values(BookingStatus));
+
+const bookingListInclude = {
+  user: {
+    select: {
+      id: true,
+      email: true,
+      name: true,
+    },
+  },
+  event: {
+    select: {
+      id: true,
+      name: true,
+      isPublished: true,
+      organizer: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+  },
+  payments: {
+    select: {
+      id: true,
+      stripeCheckoutSessionId: true,
+      amount: true,
+      currency: true,
+      status: true,
+      createdAt: true,
+    },
+  },
+} as const;
+
+const bookingDetailInclude = {
+  payments: true,
+  event: {
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      isPublished: true,
+      organizer: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+  },
+} as const;
+
+type BookingListItem = Prisma.BookingGetPayload<{ include: typeof bookingListInclude }>;
+type BookingDetail = Prisma.BookingGetPayload<{ include: typeof bookingDetailInclude }>;
+type PublicBookingSubmission = {
+  id: number;
+  fullName: string | null;
+  email: string | null;
+  phone: string | null;
+  eventId: string | null;
+  eventName: string | null;
+  userId: number | null;
+  bookingDate: Date | null;
+  bookingTime: string | null;
+  guestCount: number | null;
+  notes: string | null;
+  totalPrice: Prisma.Decimal;
+  status: BookingStatus;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type EventPriceInfo = {
+  amount: Prisma.Decimal;
+  currency: string;
+};
+
+type ListBookingsFilters = Partial<ListBookingsQuery> & {
+  search?: string;
+};
+
+type BookingListScope = {
+  where: Prisma.BookingWhereInput;
+  cacheScope: string;
+};
+
+type PaginatedResponse<T> = {
+  data: T[];
+  meta: {
+    page: number;
+    limit: number;
+    totalItems: number;
+    totalPages: number;
+  };
+};
+
+const normalizePagination = (page: number, limit: number) => {
+  const safePage = Number.isFinite(page) && page > 0 ? Math.floor(page) : DEFAULT_PAGE;
+  const requestedLimit = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : DEFAULT_LIMIT;
+  const safeLimit = Math.min(requestedLimit, MAX_LIMIT);
+
+  return { page: safePage, limit: safeLimit };
+};
+
+const parseDate = (value: unknown): Date | undefined => {
+  if (!value) {
+    return undefined;
+  }
+
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? undefined : value;
+  }
+
+  if (typeof value === 'string' || typeof value === 'number') {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+  }
+
+  return undefined;
+};
+
+const normalizeStatusFilter = (status: unknown): BookingStatus[] | undefined => {
+  if (!status) {
+    return undefined;
+  }
+
+  const statuses = Array.isArray(status) ? status : String(status).split(',');
+
+  const normalized = statuses
+    .map((value) => value?.toString().trim())
+    .filter((value): value is string => Boolean(value))
+    .map((value) => value.toUpperCase())
+    .filter((value): value is BookingStatus => BOOKING_STATUS_VALUES.has(value as BookingStatus));
+
+  return normalized.length > 0 ? normalized : undefined;
+};
+
+const normalizeFilters = (filters?: Partial<ListBookingsQuery>): Partial<ListBookingsQuery> | undefined => {
+  if (!filters) {
+    return undefined;
+  }
+
+  const normalized: Partial<ListBookingsQuery> = {};
+
+  const status = normalizeStatusFilter((filters as { status?: unknown }).status);
+  if (status) {
+    normalized.status = status;
+  }
+
+  if (typeof filters.eventName === 'string') {
+    const trimmed = filters.eventName.trim();
+    if (trimmed) {
+      normalized.eventName = trimmed;
+    }
+  }
+
+  const checkInFrom = parseDate((filters as { checkInFrom?: unknown }).checkInFrom);
+  if (checkInFrom) {
+    normalized.checkInFrom = checkInFrom;
+  }
+
+  const checkInTo = parseDate((filters as { checkInTo?: unknown }).checkInTo);
+  if (checkInTo) {
+    normalized.checkInTo = checkInTo;
+  }
+
+  const checkOutFrom = parseDate((filters as { checkOutFrom?: unknown }).checkOutFrom);
+  if (checkOutFrom) {
+    normalized.checkOutFrom = checkOutFrom;
+  }
+
+  const checkOutTo = parseDate((filters as { checkOutTo?: unknown }).checkOutTo);
+  if (checkOutTo) {
+    normalized.checkOutTo = checkOutTo;
+  }
+
+  return Object.keys(normalized).length > 0 ? normalized : undefined;
+};
+
+const normalizeListFilters = (filters?: ListBookingsFilters): ListBookingsFilters | undefined => {
+  if (!filters) {
+    return undefined;
+  }
+
+  const normalized = normalizeFilters(filters);
+  const search =
+    typeof filters.search === 'string'
+      ? filters.search.trim()
+      : undefined;
+
+  if (!normalized && !search) {
+    return undefined;
+  }
+
+  return {
+    ...(normalized ?? {}),
+    ...(search ? { search } : {}),
+  };
+};
+
+const resolveEventPricing = (event: {
+  ticketTiers: Array<{ price: Prisma.Decimal; currency: string }>;
+}): EventPriceInfo => {
+  const primaryTier = event.ticketTiers[0];
+  return {
+    amount: primaryTier?.price ?? new Prisma.Decimal(0),
+    currency: primaryTier?.currency ?? 'usd',
+  };
+};
+
+type UserBookingHistoryItem = {
+  id: number;
+  eventId: string | null;
+  eventName: string | null;
+  bookingDate: Date | null;
+  bookingTime: string | null;
+  checkIn: Date | null;
+  checkOut: Date | null;
+  totalPrice: Prisma.Decimal | null;
+  status: BookingStatus;
+  createdAt: Date;
+};
+
+const resolveBookingListScope = async (actor: AuthenticatedUser): Promise<BookingListScope> => {
+  if (actor.role === Role.ADMIN) {
+    return {
+      where: {},
+      cacheScope: 'all',
+    };
+  }
+
+  if (actor.role === Role.USER) {
+    return {
+      where: { userId: actor.id },
+      cacheScope: `user:${actor.id}`,
+    };
+  }
+
+  if (actor.role === Role.OWNER || actor.role === Role.STAFF) {
+    const organizerScope = await resolveOrganizerTenantScope({ prisma }, actor, {
+      allowAdminPlatform: false,
+      ownerNoOrganizerMessage: 'Owner bookings require an owned organizer',
+      staffNoAssignmentsMessage: 'Staff bookings require at least one organizer assignment',
+      forbiddenMessage: 'You do not have permission to access these bookings',
+    });
+
+    if (organizerScope.organizerIds.length === 1) {
+      const cacheScope =
+        actor.role === Role.STAFF
+          ? `organizers:${organizerScope.organizerIds[0]}`
+          : organizerScope.cacheScope;
+
+      return {
+      where: { organizerId: organizerScope.organizerIds[0] },
+        cacheScope,
+      };
+    }
+
+    return {
+      where: { organizerId: { in: organizerScope.organizerIds } },
+      cacheScope: `organizers:${organizerScope.organizerIds.slice().sort().join(',')}`,
+    };
+  }
+
+  return {
+    where: { userId: actor.id },
+    cacheScope: `user:${actor.id}`,
+  };
+};
+
+const canAccessBookingDetail = async (
+  actor: AuthenticatedUser,
+  booking: BookingDetail
+): Promise<boolean> => {
+  if (actor.role === Role.ADMIN) {
+    return true;
+  }
+
+  if (actor.role === Role.USER) {
+    return booking.userId === actor.id;
+  }
+
+  if (actor.role === Role.OWNER || actor.role === Role.STAFF) {
+    const organizerScope = await resolveOrganizerTenantScope({ prisma }, actor, {
+      allowAdminPlatform: false,
+      ownerNoOrganizerMessage: 'Owner bookings require an owned organizer',
+      staffNoAssignmentsMessage: 'Staff bookings require at least one organizer assignment',
+      forbiddenMessage: 'You do not have permission to access these bookings',
+    });
+
+    const bookingOrganizerId = booking.event?.organizer?.id;
+    if (!bookingOrganizerId) {
+      return false;
+    }
+
+    return organizerScope.organizerIds.includes(bookingOrganizerId);
+  }
+
+  return booking.userId === actor.id;
+};
+
+const invalidateBookingCollections = async (userId: number) => {
+  if (!cache.isConnectedToRedis()) {
+    return;
+  }
+
+  await Promise.all([
+    cache.delByPrefix(`bookings:${userId}`),
+    cache.delByPrefix(`bookings:all`),
+  ]);
+};
+
+export const bookingService = {
+  createPublicSubmission: async (
+    input: CreatePublicBookingInput,
+    actor?: AuthenticatedUser | null,
+    organizerId?: string
+  ): Promise<PublicBookingSubmission> => {
+    const bookingDate = new Date(`${input.bookingDate}T00:00:00.000Z`);
+
+    if (Number.isNaN(bookingDate.getTime())) {
+      throw new HttpError(400, 'Booking date must be a valid date');
+    }
+
+    const event = await prisma.event.findUnique({
+      where: { id: input.eventId },
+      select: {
+        id: true,
+        name: true,
+        organizerId: true,
+        isPublished: true,
+        organizer: {
+          select: {
+            isSuspended: true,
+          },
+        },
+        ticketTiers: {
+          where: { isActive: true },
+          orderBy: { price: 'asc' },
+          take: 1,
+          select: {
+            price: true,
+            currency: true,
+          },
+        },
+      },
+    });
+
+    if (!event) {
+      throw new HttpError(404, 'Event not found');
+    }
+
+    if (organizerId && event.organizerId !== organizerId) {
+      throw new HttpError(404, 'Event not found for this organizer');
+    }
+
+    if (!event.isPublished) {
+      throw new HttpError(400, 'This event is not available for public booking');
+    }
+
+    if (event.organizer.isSuspended) {
+      throw new HttpError(403, 'This organizer is currently suspended');
+    }
+
+    const hasGuestDetails =
+      Boolean(input.fullName?.trim()) &&
+      Boolean(input.email?.trim()) &&
+      Boolean(input.phone?.trim());
+
+    if (!actor && !hasGuestDetails) {
+      throw new HttpError(400, 'Guest bookings require full name, email, and phone');
+    }
+
+    const fullName = input.fullName?.trim() || actor?.name?.trim() || actor?.email?.trim();
+    const email = input.email?.trim() || actor?.email?.trim();
+    const phone = input.phone?.trim() || null;
+
+    if (!fullName || !email) {
+      throw new HttpError(400, 'A full name and email address are required');
+    }
+
+    const pricing = resolveEventPricing(event);
+
+    const booking = await prisma.booking.create({
+      data: {
+        email,
+        eventId: event.id,
+        fullName,
+        organizerId: event.organizerId,
+        notes: input.notes ?? null,
+        phone,
+        subtotalAmount: pricing.amount,
+        totalAmount: pricing.amount,
+        currency: pricing.currency,
+        status: BookingStatus.PENDING,
+        userId: actor?.id ?? null,
+      },
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        phone: true,
+        eventId: true,
+        userId: true,
+        notes: true,
+        totalAmount: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    return {
+      id: booking.id,
+      fullName: booking.fullName ?? fullName,
+      email: booking.email ?? email,
+      phone: booking.phone ?? phone ?? '',
+      eventId: booking.eventId,
+      eventName: event.name,
+      userId: booking.userId,
+      bookingDate,
+      bookingTime: input.bookingTime,
+      guestCount: input.guestCount,
+      notes: booking.notes ?? null,
+      totalPrice: booking.totalAmount,
+      status: booking.status,
+      createdAt: booking.createdAt,
+      updatedAt: booking.updatedAt,
+    };
+  },
+
+  list: async (
+    actor: AuthenticatedUser,
+    page: number = DEFAULT_PAGE,
+    limit: number = DEFAULT_LIMIT,
+    filters?: ListBookingsFilters
+  ): Promise<PaginatedResponse<BookingListItem>> => {
+    try {
+      const { page: currentPage, limit: currentLimit } = normalizePagination(page, limit);
+      const skip = (currentPage - 1) * currentLimit;
+      const scope = await resolveBookingListScope(actor);
+      const normalizedFilters = normalizeListFilters(filters);
+
+      const filterString = normalizedFilters ? JSON.stringify(normalizedFilters) : '';
+      const cacheKey = `bookings:${scope.cacheScope}:${currentPage}:${currentLimit}:${filterString}`;
+
+      if (cache.isConnectedToRedis()) {
+        const cached = await cache.get<PaginatedResponse<BookingListItem>>(cacheKey);
+        if (cached) {
+          return cached;
+        }
+      }
+
+      const whereClauses: Prisma.BookingWhereInput[] = [];
+
+      if (Object.keys(scope.where).length > 0) {
+        whereClauses.push(scope.where);
+      }
+
+      if (normalizedFilters) {
+        if (normalizedFilters.status && normalizedFilters.status.length > 0) {
+          whereClauses.push({ status: { in: normalizedFilters.status } });
+        }
+
+        if (normalizedFilters.eventName) {
+          whereClauses.push({
+            event: {
+              name: { contains: normalizedFilters.eventName, mode: 'insensitive' },
+            },
+          });
+        }
+
+        if (normalizedFilters.checkInFrom || normalizedFilters.checkInTo) {
+          whereClauses.push({
+            createdAt: {
+              ...(normalizedFilters.checkInFrom ? { gte: normalizedFilters.checkInFrom } : {}),
+              ...(normalizedFilters.checkInTo ? { lte: normalizedFilters.checkInTo } : {}),
+            },
+          });
+        }
+
+        if (normalizedFilters.checkOutFrom || normalizedFilters.checkOutTo) {
+          whereClauses.push({
+            updatedAt: {
+              ...(normalizedFilters.checkOutFrom ? { gte: normalizedFilters.checkOutFrom } : {}),
+              ...(normalizedFilters.checkOutTo ? { lte: normalizedFilters.checkOutTo } : {}),
+            },
+          });
+        }
+      }
+
+      if (normalizedFilters?.search) {
+        whereClauses.push({
+          OR: [
+            { fullName: { contains: normalizedFilters.search, mode: 'insensitive' } },
+            { email: { contains: normalizedFilters.search, mode: 'insensitive' } },
+            { phone: { contains: normalizedFilters.search, mode: 'insensitive' } },
+            {
+              event: {
+                name: { contains: normalizedFilters.search, mode: 'insensitive' },
+              },
+            },
+          ],
+        });
+      }
+
+      const where: Prisma.BookingWhereInput =
+        whereClauses.length === 0 ? {} : whereClauses.length === 1 ? whereClauses[0] : { AND: whereClauses };
+
+      const [bookings, totalItems] = await prisma.$transaction([
+        prisma.booking.findMany({
+          where,
+          include: bookingListInclude,
+          skip,
+          take: currentLimit,
+          orderBy: { createdAt: 'desc' },
+        }),
+        prisma.booking.count({ where }),
+      ]);
+
+      const totalPages = totalItems === 0 ? 0 : Math.ceil(totalItems / currentLimit);
+
+      const response: PaginatedResponse<BookingListItem> = {
+        data: bookings,
+        meta: {
+          page: currentPage,
+          limit: currentLimit,
+          totalItems,
+          totalPages,
+        },
+      };
+
+      if (cache.isConnectedToRedis()) {
+        await cache.set(cacheKey, response, CACHE_TTL_SECONDS);
+      }
+
+      return response;
+    } catch (error) {
+      logger.error({ err: error }, 'Failed to list bookings');
+      throw error;
+    }
+  },
+
+  listUserHistory: async (
+    actor: AuthenticatedUser,
+    page: number = DEFAULT_PAGE,
+    limit: number = DEFAULT_LIMIT
+  ): Promise<PaginatedResponse<UserBookingHistoryItem>> => {
+    if (actor.role !== Role.USER) {
+      throw new HttpError(403, 'Booking history is only available for users');
+    }
+
+    const { page: currentPage, limit: currentLimit } = normalizePagination(page, limit);
+    const skip = (currentPage - 1) * currentLimit;
+
+    const where: Prisma.BookingWhereInput = { userId: actor.id };
+    const cacheKey = `bookings:user-history:${actor.id}:${currentPage}:${currentLimit}`;
+
+    if (cache.isConnectedToRedis()) {
+      const cached = await cache.get<PaginatedResponse<UserBookingHistoryItem>>(cacheKey);
+      if (cached) {
+        return cached;
+      }
+    }
+
+    const [bookings, totalItems] = await prisma.$transaction([
+      prisma.booking.findMany({
+        where,
+        select: {
+          id: true,
+          eventId: true,
+          totalAmount: true,
+          status: true,
+          createdAt: true,
+          event: {
+            select: {
+              name: true,
+            },
+          },
+        },
+        skip,
+        take: currentLimit,
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.booking.count({ where }),
+    ]);
+
+    const totalPages = totalItems === 0 ? 0 : Math.ceil(totalItems / currentLimit);
+
+    const response: PaginatedResponse<UserBookingHistoryItem> = {
+      data: bookings.map((booking) => ({
+        id: booking.id,
+        eventId: booking.eventId,
+        eventName: booking.event?.name ?? null,
+        bookingDate: booking.createdAt,
+        bookingTime: null,
+        checkIn: null,
+        checkOut: null,
+        totalPrice: booking.totalAmount,
+        status: booking.status,
+        createdAt: booking.createdAt,
+      })),
+      meta: {
+        page: currentPage,
+        limit: currentLimit,
+        totalItems,
+        totalPages,
+      },
+    };
+
+    if (cache.isConnectedToRedis()) {
+      await cache.set(cacheKey, response, CACHE_TTL_SECONDS);
+    }
+
+    return response;
+  },
+
+  getById: async (bookingId: number, actor: AuthenticatedUser): Promise<BookingDetail> => {
+    const cacheKey = `booking:${bookingId}`;
+
+    if (cache.isConnectedToRedis()) {
+      const cached = await cache.get<BookingDetail>(cacheKey);
+      if (cached) {
+        if (!(await canAccessBookingDetail(actor, cached))) {
+          throw new HttpError(403, 'Forbidden');
+        }
+
+        return cached;
+      }
+    }
+
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: bookingDetailInclude,
+    });
+
+    if (!booking) {
+      throw new HttpError(404, 'Booking not found');
+    }
+
+    if (!(await canAccessBookingDetail(actor, booking))) {
+      throw new HttpError(403, 'Forbidden');
+    }
+
+    if (cache.isConnectedToRedis()) {
+      await cache.set(cacheKey, booking, BOOKING_CACHE_TTL_SECONDS);
+    }
+
+    return booking;
+  },
+
+  create: async (input: CreateBookingInput, user: AuthenticatedUser) => {
+    // Validate date format and ensure checkOut is after checkIn
+    const checkInDate = new Date(input.checkIn);
+    const checkOutDate = new Date(input.checkOut);
+
+    if (isNaN(checkInDate.getTime())) {
+      throw new HttpError(400, 'Invalid check-in date format. Use YYYY-MM-DD.');
+    }
+    if (isNaN(checkOutDate.getTime())) {
+      throw new HttpError(400, 'Invalid check-out date format. Use YYYY-MM-DD.');
+    }
+    if (checkOutDate <= checkInDate) {
+      throw new HttpError(400, 'Check-out date must be after check-in date.');
+    }
+
+    const event = await prisma.event.findUnique({
+      where: { id: input.eventId },
+      select: {
+        id: true,
+        name: true,
+        organizerId: true,
+        isPublished: true,
+        organizer: {
+          select: {
+            isSuspended: true,
+          },
+        },
+        ticketTiers: {
+          where: { isActive: true },
+          orderBy: { price: 'asc' },
+          take: 1,
+          select: {
+            price: true,
+            currency: true,
+          },
+        },
+      },
+    });
+
+    if (!event) {
+      throw new HttpError(404, 'Event not found');
+    }
+
+    if (event.organizer.isSuspended) {
+      throw new HttpError(403, 'This organizer is currently suspended');
+    }
+
+    if (user.role === Role.OWNER || user.role === Role.STAFF) {
+      const organizerScope = await resolveOrganizerTenantScope({ prisma }, user, {
+        allowAdminPlatform: false,
+        ownerNoOrganizerMessage: 'Owner bookings require an owned organizer',
+        staffNoAssignmentsMessage: 'Staff bookings require at least one organizer assignment',
+        forbiddenMessage: 'You do not have permission to create bookings for this organizer',
+      });
+
+      if (!organizerScope.organizerIds.includes(event.organizerId)) {
+        throw new HttpError(403, 'You do not have permission to create bookings for this organizer');
+      }
+    }
+
+    if (user.role === Role.USER && !event.isPublished) {
+      throw new HttpError(403, 'You are not allowed to book an unpublished event');
+    }
+
+    const pricing = resolveEventPricing(event);
+
+    const booking = await prisma.booking.create({
+      data: {
+        userId: user.id,
+        eventId: event.id,
+        organizerId: event.organizerId,
+        fullName: user.name?.trim() || user.email,
+        email: user.email,
+        phone: null,
+        notes: `Requested schedule ${input.checkIn} to ${input.checkOut}`,
+        subtotalAmount: pricing.amount,
+        totalAmount: pricing.amount,
+        currency: pricing.currency,
+        status: BookingStatus.PENDING,
+      },
+    });
+
+    if (cache.isConnectedToRedis()) {
+      await invalidateBookingCollections(user.id);
+    }
+
+    return booking;
+  },
+
+  update: async (bookingId: number, input: UpdateBookingInput, user: AuthenticatedUser) => {
+    const existing = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: bookingDetailInclude,
+    });
+
+    if (!existing) {
+      throw new HttpError(404, 'Booking not found');
+    }
+
+    if (!(await canAccessBookingDetail(user, existing))) {
+      throw new HttpError(403, 'Forbidden');
+    }
+
+    if (input.status && user.role === Role.USER) {
+      throw new HttpError(403, 'You do not have permission to update booking status');
+    }
+
+    if (input.status === BookingStatus.CONFIRMED) {
+      throw new HttpError(403, 'Only Stripe webhook reconciliation can confirm a booking');
+    }
+
+    const updateData: Prisma.BookingUpdateInput = {};
+
+    if (input.checkIn || input.checkOut) {
+      throw new HttpError(400, 'Check-in/check-out updates are not supported for this booking model');
+    }
+
+    if (input.status) {
+      updateData.status = input.status;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      throw new HttpError(400, 'No valid booking update fields provided');
+    }
+
+    const booking = await prisma.booking.update({
+      where: { id: bookingId },
+      data: updateData,
+    });
+
+    if (cache.isConnectedToRedis()) {
+      const operations: Promise<unknown>[] = [cache.del(`booking:${bookingId}`)];
+
+      if (existing.userId) {
+        operations.push(invalidateBookingCollections(existing.userId));
+      }
+
+      await Promise.all(operations);
+    }
+
+    return booking;
+  },
+
+  remove: async (bookingId: number) => {
+    const existing = await prisma.booking.findUnique({ where: { id: bookingId } });
+
+    if (!existing) {
+      throw new HttpError(404, 'Booking not found');
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      await tx.payment.deleteMany({
+        where: { bookingId },
+      });
+
+      return tx.booking.delete({
+        where: { id: bookingId },
+      });
+    });
+
+    if (cache.isConnectedToRedis()) {
+      const cacheOperations = [cache.del(`booking:${bookingId}`)];
+
+      if (result.userId) {
+        cacheOperations.push(invalidateBookingCollections(result.userId));
+        cacheOperations.push(cache.delByPrefix(`payments:${result.userId}`));
+      }
+
+      await Promise.all(cacheOperations);
+    }
+
+    return result;
+  },
+};
