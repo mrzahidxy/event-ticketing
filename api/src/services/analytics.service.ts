@@ -508,21 +508,18 @@ const createAnalyticsServiceHelpers = (deps: AnalyticsServiceDependencies) => {
         COUNT(*) FILTER (WHERE b.status = 'PENDING')::int AS "pendingBookings",
         COUNT(*) FILTER (WHERE b.status = 'CONFIRMED')::int AS "confirmedBookings",
         COUNT(*) FILTER (WHERE b.status = 'CANCELLED')::int AS "cancelledBookings",
-        COUNT(*) FILTER (WHERE b.status = 'COMPLETED')::int AS "completedBookings",
+        0::int AS "completedBookings",
         COALESCE(
-          SUM(CASE WHEN b.status = 'CONFIRMED' THEN b."totalPrice" ELSE 0 END),
+          SUM(CASE WHEN b.status = 'CONFIRMED' THEN b."totalAmount" ELSE 0 END),
           0
         )::double precision AS "confirmedRevenue",
+        0::double precision AS "completedRevenue",
         COALESCE(
-          SUM(CASE WHEN b.status = 'COMPLETED' THEN b."totalPrice" ELSE 0 END),
-          0
-        )::double precision AS "completedRevenue",
-        COALESCE(
-          SUM(CASE WHEN b.status IN ('CONFIRMED', 'COMPLETED') THEN b."totalPrice" ELSE 0 END),
+          SUM(CASE WHEN b.status = 'CONFIRMED' THEN b."totalAmount" ELSE 0 END),
           0
         )::double precision AS "totalRevenue",
         COALESCE(
-          AVG(CASE WHEN b.status IN ('CONFIRMED', 'COMPLETED') THEN NULLIF(b."totalPrice", 0) END),
+          AVG(CASE WHEN b.status = 'CONFIRMED' THEN NULLIF(b."totalAmount", 0) END),
           0
         )::double precision AS "averageOrderValue"
       FROM "Booking" b
@@ -572,7 +569,7 @@ const createAnalyticsServiceHelpers = (deps: AnalyticsServiceDependencies) => {
         DATE_TRUNC(${query.granularity}, b."createdAt") AS period,
         COUNT(*)::int AS "bookingCount",
         COALESCE(
-          SUM(CASE WHEN b.status IN ('CONFIRMED', 'COMPLETED') THEN b."totalPrice" ELSE 0 END),
+          SUM(CASE WHEN b.status = 'CONFIRMED' THEN b."totalAmount" ELSE 0 END),
           0
         )::double precision AS revenue
       FROM "Booking" b
@@ -621,7 +618,7 @@ const createAnalyticsServiceHelpers = (deps: AnalyticsServiceDependencies) => {
           o.name AS "organizerName",
           COUNT(b.id)::int AS "bookingCount",
           COALESCE(
-            SUM(CASE WHEN b.status IN ('CONFIRMED', 'COMPLETED') THEN b."totalPrice" ELSE 0 END),
+            SUM(CASE WHEN b.status = 'CONFIRMED' THEN b."totalAmount" ELSE 0 END),
             0
           )::double precision AS revenue
         FROM "Event" e
@@ -754,8 +751,13 @@ const createAnalyticsServiceHelpers = (deps: AnalyticsServiceDependencies) => {
         COUNT(*)::int AS "totalEvents",
         COUNT(*) FILTER (WHERE e."isPublished" = true)::int AS "publishedEvents",
         COUNT(*) FILTER (WHERE e."isPublished" = false)::int AS "unpublishedEvents",
-        COALESCE(AVG(e.price), 0)::double precision AS "averageEventPrice"
+        COALESCE(AVG(tp."averagePrice"), 0)::double precision AS "averageEventPrice"
       FROM "Event" e
+      LEFT JOIN LATERAL (
+        SELECT AVG(tt.price)::double precision AS "averagePrice"
+        FROM "TicketTier" tt
+        WHERE tt."eventId" = e.id
+      ) tp ON true
       WHERE e."createdAt" >= ${query.dateFrom}
         AND e."createdAt" <= ${query.dateTo}
         ${organizerFilter}
@@ -787,12 +789,17 @@ const createAnalyticsServiceHelpers = (deps: AnalyticsServiceDependencies) => {
         COUNT(e.id)::int AS "totalEvents",
         COUNT(*) FILTER (WHERE e."isPublished" = true)::int AS "publishedEvents",
         COUNT(*) FILTER (WHERE e."isPublished" = false)::int AS "unpublishedEvents",
-        COALESCE(AVG(e.price), 0)::double precision AS "averagePrice"
+        COALESCE(AVG(tp."averagePrice"), 0)::double precision AS "averagePrice"
       FROM "Organizer" o
       LEFT JOIN "Event" e
         ON e."organizerId" = o.id
        AND e."createdAt" >= ${query.dateFrom}
        AND e."createdAt" <= ${query.dateTo}
+      LEFT JOIN LATERAL (
+        SELECT AVG(tt.price)::double precision AS "averagePrice"
+        FROM "TicketTier" tt
+        WHERE tt."eventId" = e.id
+      ) tp ON true
       ${organizerFilter}
       GROUP BY o.id, o.name
       ORDER BY COUNT(e.id) DESC, o.name ASC
@@ -832,7 +839,7 @@ const createAnalyticsServiceHelpers = (deps: AnalyticsServiceDependencies) => {
         LEFT JOIN "Booking" b ON b."userId" = u.id
         LEFT JOIN "Event" e ON e.id = b."eventId"
         LEFT JOIN "Organizer" o ON o."ownerId" = u.id
-        LEFT JOIN "OrganizerStaff" os ON os."userId" = u.id
+        LEFT JOIN "OrganizerMembership" os ON os."userId" = u.id
         WHERE
           e."organizerId" IN (${organizerIds})
           OR o.id IN (${organizerIds})
@@ -873,7 +880,7 @@ const createAnalyticsServiceHelpers = (deps: AnalyticsServiceDependencies) => {
               WHERE o.id IN (${organizerIds})
               UNION
               SELECT DISTINCT os."userId" AS id
-              FROM "OrganizerStaff" os
+              FROM "OrganizerMembership" os
               WHERE os."organizerId" IN (${organizerIds})
             )
             SELECT u.role, COUNT(*)::int AS count
@@ -893,7 +900,7 @@ const createAnalyticsServiceHelpers = (deps: AnalyticsServiceDependencies) => {
               FROM "Organizer" o
               UNION
               SELECT DISTINCT os."userId" AS id
-              FROM "OrganizerStaff" os
+              FROM "OrganizerMembership" os
             )
             SELECT u.role, COUNT(*)::int AS count
             FROM "User" u
@@ -944,7 +951,7 @@ const createAnalyticsServiceHelpers = (deps: AnalyticsServiceDependencies) => {
     const [countRows, rows] = await Promise.all([
       deps.prisma.$queryRaw<CountRow[]>`
         SELECT COUNT(DISTINCT os."userId")::int AS "totalItems"
-        FROM "OrganizerStaff" os
+        FROM "OrganizerMembership" os
         ${organizerFilter}
       `,
       deps.prisma.$queryRaw<StaffPerformanceRow[]>`
@@ -956,10 +963,10 @@ const createAnalyticsServiceHelpers = (deps: AnalyticsServiceDependencies) => {
           MAX(os."assignedAt") AS "latestAssignmentAt",
           COUNT(DISTINCT b.id)::int AS "bookingCount",
           COALESCE(
-            SUM(CASE WHEN b.status IN ('CONFIRMED', 'COMPLETED') THEN b."totalPrice" ELSE 0 END),
+            SUM(CASE WHEN b.status = 'CONFIRMED' THEN b."totalAmount" ELSE 0 END),
             0
           )::double precision AS revenue
-        FROM "OrganizerStaff" os
+        FROM "OrganizerMembership" os
         INNER JOIN "User" u ON u.id = os."userId"
         LEFT JOIN "Event" e ON e."organizerId" = os."organizerId"
         LEFT JOIN "Booking" b

@@ -151,7 +151,7 @@ const buildSynthesizedAuditLogEntries = async (): Promise<AuditLogEntry[]> => {
       SELECT
         b.id AS "bookingId",
         e."organizerId" AS "organizerId",
-        b."eventName" AS "eventName",
+        e.name AS "eventName",
         b.email AS email,
         b."fullName" AS "fullName",
         b."createdAt",
@@ -283,7 +283,7 @@ export const adminService = {
         COUNT(DISTINCT e.id)::int AS "eventCount"
       FROM "Organizer" o
       INNER JOIN "User" u ON u.id = o."ownerId"
-      LEFT JOIN "OrganizerStaff" os ON os."organizerId" = o.id
+      LEFT JOIN "OrganizerMembership" os ON os."organizerId" = o.id
       LEFT JOIN "Event" e ON e."organizerId" = o.id
       GROUP BY o.id, u.id
       ORDER BY o."createdAt" DESC
