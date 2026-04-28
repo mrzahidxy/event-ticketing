@@ -26,8 +26,8 @@ const formatRole = (role?: string | null) => {
 
 export function UserMenu({ name, email, role }: UserMenuProps) {
   const initials = useMemo(() => getInitials(name ?? '', 2) || 'EN', [name])
-  const displayName = name ?? 'Avery Booker'
-  const displayEmail = email ?? 'organizer@example.com'
+  const displayName = name ?? 'Signed-in user'
+  const displayEmail = email ?? 'No email on file'
   const displayRole = formatRole(role)
 
   const handleSignOut = () => {

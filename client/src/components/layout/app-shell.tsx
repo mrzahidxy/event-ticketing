@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { UserMenu } from '@/components/layout/user-menu'
 import { NavLinks } from '@/components/navigation/nav-links'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
+import { appConfig } from '@/config/app'
 import { auth } from '@/lib/auth'
 
 type AppShellProps = {
@@ -13,8 +14,8 @@ type AppShellProps = {
 
 export async function AppShell({ children }: AppShellProps) {
   const session = await auth()
-  const name = session?.user?.name ?? 'Avery Booker'
-  const email = session?.user?.email ?? 'organizer@example.com'
+  const name = session?.user?.name ?? 'Signed-in user'
+  const email = session?.user?.email ?? 'No email on file'
   const role = session?.user?.role ?? 'owner'
 
   return (
@@ -24,12 +25,12 @@ export async function AppShell({ children }: AppShellProps) {
           <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md">
             <span className="text-lg font-semibold">NB</span>
           </div>
-          <div>
+            <div>
             <Link
               href="/business-owner/dashboard"
               className="text-lg font-semibold text-foreground"
             >
-              event ticketing platfrom
+              {appConfig.name}
             </Link>
             <p className="text-xs text-muted-foreground">Organizer Console</p>
           </div>
@@ -45,7 +46,7 @@ export async function AppShell({ children }: AppShellProps) {
           <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-10">
             <div className="flex items-center gap-2 text-xs font-semibold text-primary-foreground/80">
               <Bell className="h-4 w-4 text-primary-foreground/80" />
-              <span>event ticketing platfrom / web</span>
+              <span>{appConfig.name} / web</span>
             </div>
 
             <div className="flex items-center gap-4 text-sm">

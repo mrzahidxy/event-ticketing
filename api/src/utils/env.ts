@@ -28,7 +28,7 @@ const baseEnvSchema = z.object({
     .string()
     .default('event ticketing platfrom'),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-  PORT: z.coerce.number().default(8080),
+  PORT: z.coerce.number().default(4000),
   HOST: z.string().default('0.0.0.0'),
   DATABASE_URL: z.string().url(),
   DIRECT_URL: z.string().url().optional(),
@@ -72,6 +72,27 @@ const envSchema = baseEnvSchema.superRefine((data, ctx) => {
       code: z.ZodIssueCode.custom,
       path: ['COOKIE_SECURE'],
       message: 'COOKIE_SECURE must be true when COOKIE_SAME_SITE is none',
+    });
+  }
+
+  if (data.NODE_ENV === 'production' && !data.REDIS_URL) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['REDIS_URL'],
+      message: 'REDIS_URL is required in production',
+    });
+  }
+
+  if (Boolean(data.STRIPE_SECRET_KEY) !== Boolean(data.STRIPE_WEBHOOK_SECRET)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['STRIPE_SECRET_KEY'],
+      message: 'STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET must be set together',
+    });
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['STRIPE_WEBHOOK_SECRET'],
+      message: 'STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET must be set together',
     });
   }
 });

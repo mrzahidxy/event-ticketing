@@ -1,13 +1,15 @@
 import GitHub from 'next-auth/providers/github'
 
+import { env } from '@/config/env'
+
 export function getOptionalOAuthProviders() {
   const providers = []
 
-  if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
+  if (env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET) {
     providers.push(
       GitHub({
-        clientId: process.env.GITHUB_CLIENT_ID,
-        clientSecret: process.env.GITHUB_CLIENT_SECRET,
+        clientId: env.GITHUB_CLIENT_ID,
+        clientSecret: env.GITHUB_CLIENT_SECRET,
       }),
     )
   }

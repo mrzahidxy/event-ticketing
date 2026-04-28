@@ -33,8 +33,7 @@ import {
 import { listUsers } from '@/features/admin/users/api/user-client'
 import { createOrganizer } from '@/features/business-owner/team/api/organizer-client'
 import { TenantToolbar } from './components/tenant-toolbar'
-import { useTenantDirectory } from './hooks/use-tenant-directory'
-import type { Tenant } from './tenant-detail-drawer'
+import { useTenantDirectory, type Tenant } from './hooks/use-tenant-directory'
 
 export function TenantsPage() {
   const queryClient = useQueryClient()

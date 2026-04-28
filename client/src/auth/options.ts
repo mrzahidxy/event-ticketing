@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { getOptionalOAuthProviders } from '@/auth/providers'
 import { authRoutes } from '@/auth/routes'
+import { appConfig } from '@/config/app'
 import { env } from '@/config/env'
 import { loginSchema } from '@/validation/auth-schema'
 import type { NextAuthConfig, User } from 'next-auth'
@@ -49,9 +50,9 @@ const credentialProvider = Credentials({
   },
 })
 
-const isProductionBuild = process.env.NEXT_PHASE === 'phase-production-build'
+const isProductionBuild = env.NEXT_PHASE === 'phase-production-build'
 const fallbackAuthSecret = createHash('sha256')
-  .update(`${process.cwd()}:event-ticketing-platfrom-dev-auth-secret`)
+  .update(`${process.cwd()}:${appConfig.name}:dev-auth-secret`)
   .digest('hex')
 
 function resolveAuthSecret() {

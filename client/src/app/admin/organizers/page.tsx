@@ -1,5 +1,5 @@
-import { OrganizersPage } from '@/features/admin'
+import { TenantsPage } from '@/features/admin'
 
 export default function AdminOrganizersPage() {
-  return <OrganizersPage />
+  return <TenantsPage />
 }

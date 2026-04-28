@@ -26,13 +26,16 @@ Visit `http://localhost:3000`. Seeded credentials:
 Each user type has access to different areas of the application based on their role. The middleware handles route protection and ensures users can only access areas they're authorized to use.
 
 ## Environment variables
-Copy `.env.example` to `.env.local` and configure:
+Copy `.env.example` to `.env` and configure:
 ```
-AUTH_SECRET=                         # optional Auth.js v5 alias
-NEXTAUTH_SECRET=change-me              # openssl rand -base64 32
+NODE_ENV=development
+NEXT_PUBLIC_APP_NAME="event ticketing platfrom"
+NEXT_PUBLIC_APP_DESCRIPTION="event ticketing platfrom"
 NEXTAUTH_URL=http://localhost:3000
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8080
+NEXT_PUBLIC_API_BASE_URL=http://localhost:4000
+AUTH_SECRET=
+NEXTAUTH_SECRET=change-me              # openssl rand -base64 32
 SEED_OWNER_EMAIL=owner@example.com
 SEED_OWNER_PASSWORD=changeMeOwner1!
 GITHUB_CLIENT_ID=
@@ -118,7 +121,7 @@ src/
 - `npm run lint` – ESLint (flat config + Prettier compatibility)
 - `npm run typecheck` – TypeScript project check
 - `npm run format` / `npm run format:write` – Prettier with import sorting
-- `./api-curls.sh help` – list ready-to-run curl commands for the backend API on `localhost:8080`; override `BASE_URL`, `TOKEN`, `ORGANIZER_ID`, `DATE_FROM`, and `DATE_TO` as needed
+- `./api-curls.sh help` – list ready-to-run curl commands for the backend API on `localhost:4000`; override `BASE_URL`, `TOKEN`, `ORGANIZER_ID`, `DATE_FROM`, and `DATE_TO` as needed
 
 CI workflow (`.github/workflows/ci.yml`) runs lint -> typecheck -> build on pushes/PRs.
 

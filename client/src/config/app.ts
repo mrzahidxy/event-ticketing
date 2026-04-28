@@ -1,8 +1,8 @@
 import { env } from '@/config/env'
 
 export const appConfig = {
-  name: 'event ticketing platfrom',
-  description: 'event ticketing platfrom',
+  name: env.NEXT_PUBLIC_APP_NAME,
+  description: env.NEXT_PUBLIC_APP_DESCRIPTION,
   url: env.NEXT_PUBLIC_SITE_URL,
   apiBaseUrl: env.NEXT_PUBLIC_API_BASE_URL,
   auth: {

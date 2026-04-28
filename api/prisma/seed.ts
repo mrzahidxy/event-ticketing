@@ -1,5 +1,3 @@
-import 'dotenv/config';
-
 import {
   BookingStatus,
   OrganizerRole,
@@ -10,6 +8,7 @@ import {
 } from '@prisma/client';
 
 import { resolvePermissions } from '../src/config/rbac';
+import { seedEnv } from '../src/config/seed';
 import { hashPassword } from '../src/utils/password';
 
 const prisma = new PrismaClient();
@@ -21,33 +20,30 @@ type SeedUser = {
   password: string;
 };
 
-const ownerEmail = process.env.SEED_OWNER_EMAIL?.trim() || 'owner@example.com';
-const ownerPassword = process.env.SEED_OWNER_PASSWORD || 'changeMeOwner1!';
-
 const usersToSeed: SeedUser[] = [
   {
-    email: 'admin@example.com',
+    email: seedEnv.SEED_ADMIN_EMAIL,
     name: 'Platform Admin',
     role: Role.ADMIN,
-    password: 'changeMeAdmin1!',
+    password: seedEnv.SEED_ADMIN_PASSWORD,
   },
   {
-    email: ownerEmail,
+    email: seedEnv.SEED_OWNER_EMAIL,
     name: 'Organizer Owner',
     role: Role.OWNER,
-    password: ownerPassword,
+    password: seedEnv.SEED_OWNER_PASSWORD,
   },
   {
-    email: 'staff@example.com',
+    email: seedEnv.SEED_STAFF_EMAIL,
     name: 'Organizer Staff',
     role: Role.STAFF,
-    password: 'changeMeStaff1!',
+    password: seedEnv.SEED_STAFF_PASSWORD,
   },
   {
-    email: 'user@example.com',
+    email: seedEnv.SEED_USER_EMAIL,
     name: 'Ticket Buyer',
     role: Role.USER,
-    password: 'changeMeUser1!',
+    password: seedEnv.SEED_USER_PASSWORD,
   },
 ];
 
@@ -98,9 +94,9 @@ async function main(): Promise<void> {
     usersByEmail.set(user.email, user);
   }
 
-  const owner = usersByEmail.get(ownerEmail);
-  const staff = usersByEmail.get('staff@example.com');
-  const buyer = usersByEmail.get('user@example.com');
+  const owner = usersByEmail.get(seedEnv.SEED_OWNER_EMAIL);
+  const staff = usersByEmail.get(seedEnv.SEED_STAFF_EMAIL);
+  const buyer = usersByEmail.get(seedEnv.SEED_USER_EMAIL);
 
   if (!owner || !staff || !buyer) {
     throw new Error('Seed dependency resolution failed for owner, staff, or user');

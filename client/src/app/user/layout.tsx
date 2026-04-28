@@ -31,8 +31,8 @@ export default async function UserLayout({ children }: UserLayoutProps) {
     redirect('/access-denied' as Route)
   }
 
-  const name = session.user.name ?? 'User'
-  const email = session.user.email ?? 'user@example.com'
+  const name = session.user.name ?? 'Signed-in user'
+  const email = session.user.email ?? 'No email on file'
 
   return (
     <div className="min-h-screen bg-slate-50">
