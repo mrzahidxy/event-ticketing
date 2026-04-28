@@ -1,15 +1,16 @@
-import 'dotenv/config';
-
 import {
+  CheckinSource,
   BookingStatus,
   OrganizerRole,
   PaymentStatus,
   PrismaClient,
   Role,
   Prisma,
+  TicketStatus,
 } from '@prisma/client';
 
 import { resolvePermissions } from '../src/config/rbac';
+import { seedEnv } from '../src/config/seed';
 import { hashPassword } from '../src/utils/password';
 
 const prisma = new PrismaClient();
@@ -21,51 +22,46 @@ type SeedUser = {
   password: string;
 };
 
-const ownerEmail = process.env.SEED_OWNER_EMAIL?.trim() || 'owner@example.com';
-const ownerPassword = process.env.SEED_OWNER_PASSWORD || 'changeMeOwner1!';
-
 const usersToSeed: SeedUser[] = [
   {
-    email: 'admin@example.com',
+    email: seedEnv.SEED_ADMIN_EMAIL,
     name: 'Platform Admin',
     role: Role.ADMIN,
-    password: 'changeMeAdmin1!',
+    password: seedEnv.SEED_ADMIN_PASSWORD,
   },
   {
-    email: ownerEmail,
+    email: seedEnv.SEED_OWNER_EMAIL,
     name: 'Organizer Owner',
     role: Role.OWNER,
-    password: ownerPassword,
+    password: seedEnv.SEED_OWNER_PASSWORD,
   },
   {
-    email: 'staff@example.com',
+    email: seedEnv.SEED_STAFF_EMAIL,
     name: 'Organizer Staff',
     role: Role.STAFF,
-    password: 'changeMeStaff1!',
+    password: seedEnv.SEED_STAFF_PASSWORD,
   },
   {
-    email: 'user@example.com',
+    email: seedEnv.SEED_USER_EMAIL,
     name: 'Ticket Buyer',
     role: Role.USER,
-    password: 'changeMeUser1!',
+    password: seedEnv.SEED_USER_PASSWORD,
   },
 ];
 
 async function resetSeedData(): Promise<void> {
-  await prisma.$executeRawUnsafe(`
-    TRUNCATE TABLE
-      "TicketCheckin",
-      "Ticket",
-      "Payment",
-      "BookingItem",
-      "Booking",
-      "TicketTier",
-      "Event",
-      "OrganizerMembership",
-      "Organizer",
-      "User"
-    RESTART IDENTITY CASCADE
-  `);
+  await prisma.$transaction([
+    prisma.ticketCheckin.deleteMany(),
+    prisma.ticket.deleteMany(),
+    prisma.payment.deleteMany(),
+    prisma.bookingItem.deleteMany(),
+    prisma.booking.deleteMany(),
+    prisma.ticketTier.deleteMany(),
+    prisma.event.deleteMany(),
+    prisma.organizerMembership.deleteMany(),
+    prisma.organizer.deleteMany(),
+    prisma.user.deleteMany(),
+  ]);
 }
 
 async function createUser(userData: SeedUser) {
@@ -98,9 +94,9 @@ async function main(): Promise<void> {
     usersByEmail.set(user.email, user);
   }
 
-  const owner = usersByEmail.get(ownerEmail);
-  const staff = usersByEmail.get('staff@example.com');
-  const buyer = usersByEmail.get('user@example.com');
+  const owner = usersByEmail.get(seedEnv.SEED_OWNER_EMAIL);
+  const staff = usersByEmail.get(seedEnv.SEED_STAFF_EMAIL);
+  const buyer = usersByEmail.get(seedEnv.SEED_USER_EMAIL);
 
   if (!owner || !staff || !buyer) {
     throw new Error('Seed dependency resolution failed for owner, staff, or user');
@@ -157,7 +153,7 @@ async function main(): Promise<void> {
       price: new Prisma.Decimal('199.00'),
       currency: 'usd',
       quantityTotal: 500,
-      quantitySold: 3,
+      quantitySold: 2,
       isActive: true,
     },
     select: {
@@ -166,6 +162,9 @@ async function main(): Promise<void> {
       currency: true,
     },
   });
+
+  const ticketCodeBase = `NWL-2026-${publishedEvent.id.slice(0, 8)}`;
+  const confirmedTicketIssueAt = new Date('2026-06-21T20:05:00.000Z');
 
   const pendingQuantity = 1;
   const pendingAmount = publishedEventTier.price.mul(pendingQuantity);
@@ -254,6 +253,41 @@ async function main(): Promise<void> {
     },
   });
 
+  const confirmedTickets = await Promise.all(
+    Array.from({ length: confirmedQuantity }, async (_, index) =>
+      prisma.ticket.create({
+        data: {
+          bookingId: confirmedBooking.id,
+          eventId: publishedEvent.id,
+          ticketTierId: publishedEventTier.id,
+          code: `${ticketCodeBase}-${index + 1}`,
+          qrPayload: `${ticketCodeBase}:QR:${index + 1}`,
+          attendeeName: index === 0 ? 'Guest Buyer' : 'Guest Buyer 2',
+          attendeeEmail: index === 0 ? 'guest.buyer@example.com' : 'guest.buyer+2@example.com',
+          status: index === 0 ? TicketStatus.CHECKED_IN : TicketStatus.ISSUED,
+          issuedAt: confirmedTicketIssueAt,
+          checkedInAt: index === 0 ? confirmedTicketIssueAt : null,
+          voidedAt: null,
+        },
+        select: {
+          id: true,
+          code: true,
+          status: true,
+        },
+      })
+    ),
+  );
+
+  await prisma.ticketCheckin.create({
+    data: {
+      ticketId: confirmedTickets[0].id,
+      checkedInByUserId: staff.id,
+      checkedInAt: confirmedTicketIssueAt,
+      scanSource: CheckinSource.MANUAL,
+      notes: 'Seeded check-in for support flow',
+    },
+  });
+
   console.info('Database has been seeded with lean ticketing data');
   console.info(`Users: ${usersToSeed.length} (admin, owner, staff, user)`);
   console.info('Organizer: Northwind Live');
@@ -261,6 +295,8 @@ async function main(): Promise<void> {
   console.info('Ticket tiers: 1 (General Admission)');
   console.info('Bookings: 2 (1 pending, 1 confirmed)');
   console.info('Payments: 2 (1 pending, 1 succeeded)');
+  console.info('Tickets: 2 (1 checked in, 1 issued)');
+  console.info('Ticket check-ins: 1 (manual)');
 }
 
 main()

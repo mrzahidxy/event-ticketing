@@ -1,26 +1,6 @@
 import { OAS3Definition, OAS3Options } from 'swagger-jsdoc';
 
-import { env } from '../utils/env';
-
-function resolveSwaggerTitle(): string {
-  const title = env.APP_NAME.trim();
-
-  if (!title || /your api name/i.test(title)) {
-    return 'event ticketing platfrom';
-  }
-
-  return title;
-}
-
-function resolveSwaggerDescription(): string {
-  const description = env.APP_DESCRIPTION.trim();
-
-  if (!description || /your api description/i.test(description)) {
-    return 'event ticketing platfrom';
-  }
-
-  return description;
-}
+import { appConfig } from './app';
 
 const healthPaths: OAS3Definition['paths'] = {
   '/health': {
@@ -1637,9 +1617,9 @@ const analyticsPaths: OAS3Definition['paths'] = {
 const swaggerDefinition: OAS3Definition = {
   openapi: '3.0.0',
   info: {
-    title: resolveSwaggerTitle(),
+    title: appConfig.name,
     version: '1.5.0',
-    description: resolveSwaggerDescription(),
+    description: appConfig.description,
   },
   servers: [
     {

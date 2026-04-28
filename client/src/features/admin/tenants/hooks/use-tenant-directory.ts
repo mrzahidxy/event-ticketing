@@ -1,7 +1,17 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import type { Tenant } from '@/features/admin/tenants/tenant-detail-drawer'
+
+export type Tenant = {
+  id: string
+  name: string
+  slug: string
+  ownerEmail: string
+  landingPageHref?: string
+  createdDate: string
+  lastActive: string
+  status: 'Active' | 'Suspended'
+}
 
 export type TenantStatusFilter = 'all' | 'active' | 'suspended'
 export type TenantAction = 'suspend' | 'reactivate' | 'delete'

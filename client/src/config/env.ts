@@ -2,33 +2,31 @@ import { z } from 'zod'
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  NEXT_PHASE: z.string().optional(),
+  NEXT_PUBLIC_APP_NAME: z.string().trim().default('event ticketing platfrom'),
+  NEXT_PUBLIC_APP_DESCRIPTION: z.string().trim().default('event ticketing platfrom'),
   AUTH_SECRET: z.string().optional(),
   NEXTAUTH_SECRET: z.string().optional(),
-  NEXTAUTH_URL: z.string().url().optional(),
-  NEXT_PUBLIC_SITE_URL: z.string().url().optional(),
-  NEXT_PUBLIC_API_BASE_URL: z.string().url().optional(),
+  NEXTAUTH_URL: z.string().url().default('http://localhost:3000'),
+  NEXT_PUBLIC_SITE_URL: z.string().url().default('http://localhost:3000'),
+  NEXT_PUBLIC_API_BASE_URL: z.string().url().default('http://localhost:4000'),
+  GITHUB_CLIENT_ID: z.string().optional(),
+  GITHUB_CLIENT_SECRET: z.string().optional(),
 })
-
-const rawEnv = {
-  NODE_ENV: process.env.NODE_ENV,
-  AUTH_SECRET: process.env.AUTH_SECRET,
-  NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
-  NEXTAUTH_URL: process.env.NEXTAUTH_URL,
-  NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
-  NEXT_PUBLIC_API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL,
-}
-
-const parsed = envSchema.safeParse(rawEnv)
+const parsed = envSchema.safeParse(process.env)
 
 if (!parsed.success) {
   console.error('Invalid environment configuration:', parsed.error.flatten().fieldErrors)
   throw new Error('Environment validation failed')
 }
 
-export const env = {
-  ...parsed.data,
-  NEXT_PUBLIC_SITE_URL: parsed.data.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000',
-  NEXT_PUBLIC_API_BASE_URL:
-    parsed.data.NEXT_PUBLIC_API_BASE_URL ??
-    'http://localhost:8080',
+if (
+  parsed.data.NODE_ENV === 'production' &&
+  parsed.data.NEXT_PHASE !== 'phase-production-build' &&
+  !parsed.data.AUTH_SECRET &&
+  !parsed.data.NEXTAUTH_SECRET
+) {
+  throw new Error('AUTH_SECRET or NEXTAUTH_SECRET is required in production')
 }
+
+export const env = parsed.data

@@ -5,7 +5,8 @@ This repository is meant to be repurposed, not rewritten. The fastest path for a
 ## 1. Start With Configuration
 - Update `src/config/app.ts` first.
 - Set the app name, description, public URL, API base URL, and default auth routes there.
-- Copy `.env.example` to `.env.local` and keep secrets out of source control.
+- `src/config/env.ts` now supplies safe local defaults, so only override env values when you need non-local settings.
+- Copy `.env.example` to `.env` and keep secrets out of source control.
 
 ## 2. Customize The UI Foundation
 - Shared primitives live in `src/components/ui/`.

@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-BASE_URL="${BASE_URL:-http://localhost:8080}"
+BASE_URL="${BASE_URL:-http://localhost:4000}"
 API="${API:-$BASE_URL/api}"
 TOKEN="${TOKEN:-<access_token>}"
 COOKIE_JAR="${COOKIE_JAR:-cookies.txt}"
