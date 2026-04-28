@@ -1,10 +1,12 @@
 import {
+  CheckinSource,
   BookingStatus,
   OrganizerRole,
   PaymentStatus,
   PrismaClient,
   Role,
   Prisma,
+  TicketStatus,
 } from '@prisma/client';
 
 import { resolvePermissions } from '../src/config/rbac';
@@ -48,20 +50,18 @@ const usersToSeed: SeedUser[] = [
 ];
 
 async function resetSeedData(): Promise<void> {
-  await prisma.$executeRawUnsafe(`
-    TRUNCATE TABLE
-      "TicketCheckin",
-      "Ticket",
-      "Payment",
-      "BookingItem",
-      "Booking",
-      "TicketTier",
-      "Event",
-      "OrganizerMembership",
-      "Organizer",
-      "User"
-    RESTART IDENTITY CASCADE
-  `);
+  await prisma.$transaction([
+    prisma.ticketCheckin.deleteMany(),
+    prisma.ticket.deleteMany(),
+    prisma.payment.deleteMany(),
+    prisma.bookingItem.deleteMany(),
+    prisma.booking.deleteMany(),
+    prisma.ticketTier.deleteMany(),
+    prisma.event.deleteMany(),
+    prisma.organizerMembership.deleteMany(),
+    prisma.organizer.deleteMany(),
+    prisma.user.deleteMany(),
+  ]);
 }
 
 async function createUser(userData: SeedUser) {
@@ -153,7 +153,7 @@ async function main(): Promise<void> {
       price: new Prisma.Decimal('199.00'),
       currency: 'usd',
       quantityTotal: 500,
-      quantitySold: 3,
+      quantitySold: 2,
       isActive: true,
     },
     select: {
@@ -162,6 +162,9 @@ async function main(): Promise<void> {
       currency: true,
     },
   });
+
+  const ticketCodeBase = `NWL-2026-${publishedEvent.id.slice(0, 8)}`;
+  const confirmedTicketIssueAt = new Date('2026-06-21T20:05:00.000Z');
 
   const pendingQuantity = 1;
   const pendingAmount = publishedEventTier.price.mul(pendingQuantity);
@@ -250,6 +253,41 @@ async function main(): Promise<void> {
     },
   });
 
+  const confirmedTickets = await Promise.all(
+    Array.from({ length: confirmedQuantity }, async (_, index) =>
+      prisma.ticket.create({
+        data: {
+          bookingId: confirmedBooking.id,
+          eventId: publishedEvent.id,
+          ticketTierId: publishedEventTier.id,
+          code: `${ticketCodeBase}-${index + 1}`,
+          qrPayload: `${ticketCodeBase}:QR:${index + 1}`,
+          attendeeName: index === 0 ? 'Guest Buyer' : 'Guest Buyer 2',
+          attendeeEmail: index === 0 ? 'guest.buyer@example.com' : 'guest.buyer+2@example.com',
+          status: index === 0 ? TicketStatus.CHECKED_IN : TicketStatus.ISSUED,
+          issuedAt: confirmedTicketIssueAt,
+          checkedInAt: index === 0 ? confirmedTicketIssueAt : null,
+          voidedAt: null,
+        },
+        select: {
+          id: true,
+          code: true,
+          status: true,
+        },
+      })
+    ),
+  );
+
+  await prisma.ticketCheckin.create({
+    data: {
+      ticketId: confirmedTickets[0].id,
+      checkedInByUserId: staff.id,
+      checkedInAt: confirmedTicketIssueAt,
+      scanSource: CheckinSource.MANUAL,
+      notes: 'Seeded check-in for support flow',
+    },
+  });
+
   console.info('Database has been seeded with lean ticketing data');
   console.info(`Users: ${usersToSeed.length} (admin, owner, staff, user)`);
   console.info('Organizer: Northwind Live');
@@ -257,6 +295,8 @@ async function main(): Promise<void> {
   console.info('Ticket tiers: 1 (General Admission)');
   console.info('Bookings: 2 (1 pending, 1 confirmed)');
   console.info('Payments: 2 (1 pending, 1 succeeded)');
+  console.info('Tickets: 2 (1 checked in, 1 issued)');
+  console.info('Ticket check-ins: 1 (manual)');
 }
 
 main()

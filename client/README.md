@@ -29,17 +29,7 @@ Each user type has access to different areas of the application based on their r
 Copy `.env.example` to `.env` and configure:
 ```
 NODE_ENV=development
-NEXT_PUBLIC_APP_NAME="event ticketing platfrom"
-NEXT_PUBLIC_APP_DESCRIPTION="event ticketing platfrom"
-NEXTAUTH_URL=http://localhost:3000
-NEXT_PUBLIC_SITE_URL=http://localhost:3000
 NEXT_PUBLIC_API_BASE_URL=http://localhost:4000
-AUTH_SECRET=
-NEXTAUTH_SECRET=change-me              # openssl rand -base64 32
-SEED_OWNER_EMAIL=owner@example.com
-SEED_OWNER_PASSWORD=changeMeOwner1!
-GITHUB_CLIENT_ID=
-GITHUB_CLIENT_SECRET=
 ```
 
 ## Starter-kit entry points
