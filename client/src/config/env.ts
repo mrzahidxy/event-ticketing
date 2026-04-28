@@ -10,8 +10,6 @@ const envSchema = z.object({
   NEXTAUTH_URL: z.string().url().default('http://localhost:3000'),
   NEXT_PUBLIC_SITE_URL: z.string().url().default('http://localhost:3000'),
   NEXT_PUBLIC_API_BASE_URL: z.string().url().default('http://localhost:4000'),
-  GITHUB_CLIENT_ID: z.string().optional(),
-  GITHUB_CLIENT_SECRET: z.string().optional(),
 })
 const parsed = envSchema.safeParse(process.env)
 
