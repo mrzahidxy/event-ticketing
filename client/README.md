@@ -30,6 +30,7 @@ Copy `.env.example` to `.env` and configure:
 ```
 NODE_ENV=development
 NEXT_PUBLIC_API_BASE_URL=http://localhost:4000
+NEXTAUTH_SECRET=change-me
 ```
 
 ## Starter-kit entry points

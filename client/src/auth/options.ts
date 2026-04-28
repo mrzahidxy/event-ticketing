@@ -1,7 +1,5 @@
-import { createHash } from 'node:crypto'
 import { getOptionalOAuthProviders } from '@/auth/providers'
 import { authRoutes } from '@/auth/routes'
-import { appConfig } from '@/config/app'
 import { env } from '@/config/env'
 import { loginSchema } from '@/validation/auth-schema'
 import type { NextAuthConfig, User } from 'next-auth'
@@ -50,10 +48,7 @@ const credentialProvider = Credentials({
   },
 })
 
-const isProductionBuild = env.NEXT_PHASE === 'phase-production-build'
-const fallbackAuthSecret = createHash('sha256')
-  .update(`${process.cwd()}:${appConfig.name}:dev-auth-secret`)
-  .digest('hex')
+const fallbackAuthSecret = 'event-ticketing-dev-auth-secret'
 
 function resolveAuthSecret() {
   const configuredSecret = env.NEXTAUTH_SECRET ?? env.AUTH_SECRET
@@ -61,13 +56,7 @@ function resolveAuthSecret() {
     return configuredSecret
   }
 
-  if (env.NODE_ENV !== 'production' || isProductionBuild) {
-    if (isProductionBuild) {
-      console.warn(
-        'NEXTAUTH_SECRET is not set. Using a stable development secret during next build. Set NEXTAUTH_SECRET or AUTH_SECRET before running the app in production.',
-      )
-    }
-
+  if (env.NODE_ENV !== 'production') {
     return fallbackAuthSecret
   }
 
