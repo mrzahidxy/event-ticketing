@@ -39,7 +39,6 @@ function homeForRole(role?: string) {
   if (ROUTE_ROLES.admin.has(normalized)) return '/admin/overview'
   if (ROUTE_ROLES['business-owner'].has(normalized)) return '/business-owner/dashboard'
   if (ROUTE_ROLES.user.has(normalized)) return '/access-denied'
-  if (normalized === 'GUEST') return '/login'
   return '/access-denied'
 }
 

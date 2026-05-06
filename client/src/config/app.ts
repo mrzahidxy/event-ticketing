@@ -1,10 +1,10 @@
-import { env } from '@/config/env'
+import { publicEnv } from '@/config/public-env'
 
 export const appConfig = {
-  name: env.NEXT_PUBLIC_APP_NAME,
-  description: env.NEXT_PUBLIC_APP_DESCRIPTION,
-  url: env.NEXT_PUBLIC_SITE_URL,
-  apiBaseUrl: env.NEXT_PUBLIC_API_BASE_URL,
+  name: publicEnv.NEXT_PUBLIC_APP_NAME,
+  description: publicEnv.NEXT_PUBLIC_APP_DESCRIPTION,
+  url: publicEnv.NEXT_PUBLIC_SITE_URL,
+  apiBaseUrl: publicEnv.NEXT_PUBLIC_API_BASE_URL,
   auth: {
     signInPath: '/login',
     signUpPath: '/register',

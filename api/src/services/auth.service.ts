@@ -55,6 +55,16 @@ const cacheUserProfile = async (user: SanitizedUser) => {
   }
 };
 
+const sanitizeAndCacheUser = async <
+  T extends { passwordHash?: string; role: Role; ownedOrganizer?: { id: string } | null }
+>(
+  user: T
+) => {
+  const sanitized = sanitizeUser(withOrganizerId(user));
+  await cacheUserProfile(sanitized);
+  return sanitized;
+};
+
 const buildAuthResponse = (user: SanitizedUser, tokens: TokenPair) => ({
   accessToken: tokens.accessToken,
   accessTokenExpiresAt: tokens.accessTokenExpiresAt,
@@ -101,9 +111,7 @@ export const authService = {
       select: USER_SELECT,
     });
 
-    const sanitized = sanitizeUser(withOrganizerId(user));
-    await cacheUserProfile(sanitized);
-
+    const sanitized = await sanitizeAndCacheUser(user);
     const tokens = await issueTokensForUser(sanitized);
     return buildAuthResponse(sanitized, tokens);
   },
@@ -126,9 +134,7 @@ export const authService = {
       throw new HttpError(401, 'Invalid credentials');
     }
 
-    const sanitized = sanitizeUser(withOrganizerId(user));
-    await cacheUserProfile(sanitized);
-
+    const sanitized = await sanitizeAndCacheUser(user);
     const tokens = await issueTokensForUser(sanitized);
     return buildAuthResponse(sanitized, tokens);
   },
@@ -150,9 +156,7 @@ export const authService = {
       throw new HttpError(401, 'User could not be found');
     }
 
-    const sanitized = sanitizeUser(withOrganizerId(user));
-    await cacheUserProfile(sanitized);
-
+    const sanitized = await sanitizeAndCacheUser(user);
     await tokenService.revokeAccessToken(currentAccessToken);
 
     return buildAuthResponse(sanitized, tokens);
@@ -182,9 +186,6 @@ export const authService = {
       throw new HttpError(404, 'User not found');
     }
 
-    const sanitized = sanitizeUser(withOrganizerId(user));
-    await cacheUserProfile(sanitized);
-
-    return sanitized;
+    return sanitizeAndCacheUser(user);
   },
 };

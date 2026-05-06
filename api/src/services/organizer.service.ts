@@ -3,6 +3,8 @@ import { OrganizerRole, Prisma, Role } from '@prisma/client';
 import { prisma } from '../utils/prisma';
 import { HttpError } from '../utils/http-error';
 import type { AuthenticatedUser } from '../types/user';
+import { cache } from '../utils/cache';
+import { resolvePermissions } from '../config/rbac';
 
 const ORGANIZER_SELECT = {
   id: true,
@@ -556,11 +558,14 @@ export const organizerService = {
     }
 
     const assignment = await prisma.$transaction(async (tx) => {
-      if (staffUser.role === Role.USER) {
+      if (staffUser.role === Role.USER || staffUser.role === Role.STAFF) {
         await tx.user.update({
           where: { id: staffUser.id },
-          data: { role: Role.STAFF },
-        })
+          data: {
+            role: Role.STAFF,
+            permissions: resolvePermissions(Role.STAFF),
+          },
+        });
       }
 
       return tx.organizerMembership.upsert({
@@ -578,8 +583,12 @@ export const organizerService = {
           userId: staffUser.id,
           role: OrganizerRole.STAFF,
         },
-      })
-    })
+      });
+    });
+
+    if (cache.isConnectedToRedis()) {
+      await cache.del(`user:${staffUser.id}`);
+    }
 
     return assignment;
   },
