@@ -15,7 +15,7 @@ export default async function RegisterPage() {
   return (
     <div className="space-y-6">
       <RegisterForm />
-      <p className="text-center text-xs text-white/75">
+      <p className="text-center text-xs text-white/70">
         Already have an account?{' '}
         <Link className="text-sky-300 hover:text-sky-200" href="/login">
           Sign in

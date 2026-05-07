@@ -54,9 +54,9 @@ export function LoginForm({ className }: LoginFormProps) {
   return (
     <form onSubmit={handleSubmit} className={cn('space-y-4', className)}>
       <div className="space-y-1 text-center">
-        <h1 className="text-2xl font-semibold text-white">Sign in to continue</h1>
+        <h1 className="text-2xl font-semibold text-white">Sign in to your account</h1>
         <p className="text-sm text-white/85">
-          Use your backend account credentials. This form now authenticates through the API and creates a NextAuth session.
+          Use your email and password to access your dashboard and manage bookings.
         </p>
       </div>
 
@@ -98,7 +98,7 @@ export function LoginForm({ className }: LoginFormProps) {
             Signing in...
           </span>
         ) : (
-          'Sign in'
+          'Continue'
         )}
       </Button>
     </form>

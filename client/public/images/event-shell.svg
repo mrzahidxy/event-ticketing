@@ -1,0 +1,53 @@
+<svg width="1600" height="1200" viewBox="0 0 1600 1200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="1600" y2="1200" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F8FAFC" />
+      <stop offset="1" stop-color="#E2E8F0" />
+    </linearGradient>
+    <radialGradient id="tealGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(360 180) rotate(35) scale(420 360)">
+      <stop stop-color="#14B8A6" stop-opacity="0.32" />
+      <stop offset="1" stop-color="#14B8A6" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="amberGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(1330 250) rotate(145) scale(520 420)">
+      <stop stop-color="#F59E0B" stop-opacity="0.18" />
+      <stop offset="1" stop-color="#F59E0B" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="inkGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(1240 940) rotate(180) scale(560 460)">
+      <stop stop-color="#0F172A" stop-opacity="0.14" />
+      <stop offset="1" stop-color="#0F172A" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+  <rect width="1600" height="1200" fill="url(#sky)" />
+  <rect width="1600" height="1200" fill="url(#tealGlow)" />
+  <rect width="1600" height="1200" fill="url(#amberGlow)" />
+  <rect width="1600" height="1200" fill="url(#inkGlow)" />
+
+  <g opacity="0.95">
+    <path d="M118 790C198 706 287 680 366 733C445 786 460 889 403 956C345 1023 238 1041 154 987C70 934 38 875 118 790Z" fill="#FFFFFF" fill-opacity="0.7" />
+    <path d="M165 802C226 744 281 731 330 762C379 794 388 867 346 914C305 961 234 974 180 940C126 907 108 858 165 802Z" fill="#14B8A6" fill-opacity="0.14" />
+    <path d="M1272 146C1333 102 1413 94 1468 142C1524 190 1524 273 1472 323C1421 373 1340 372 1286 323C1232 274 1212 190 1272 146Z" fill="#FFFFFF" fill-opacity="0.38" />
+    <path d="M1095 870C1163 820 1251 811 1308 858C1366 904 1372 984 1318 1037C1265 1090 1176 1094 1117 1045C1059 996 1028 921 1095 870Z" fill="#F59E0B" fill-opacity="0.1" />
+  </g>
+
+  <g opacity="0.7">
+    <path d="M263 242L345 196L393 272L311 318L263 242Z" fill="#0F172A" fill-opacity="0.08" />
+    <path d="M330 312L419 262L467 339L378 389L330 312Z" fill="#14B8A6" fill-opacity="0.12" />
+    <path d="M1190 760L1288 704L1338 789L1240 846L1190 760Z" fill="#0F172A" fill-opacity="0.08" />
+    <path d="M1266 829L1350 781L1396 860L1312 908L1266 829Z" fill="#14B8A6" fill-opacity="0.1" />
+  </g>
+
+  <g opacity="0.45">
+    <circle cx="210" cy="520" r="4" fill="#14B8A6" />
+    <circle cx="252" cy="560" r="3" fill="#0F172A" />
+    <circle cx="1244" cy="380" r="4" fill="#F59E0B" />
+    <circle cx="1306" cy="428" r="3" fill="#0F172A" />
+    <circle cx="1098" cy="620" r="4" fill="#14B8A6" />
+    <circle cx="1170" cy="666" r="3" fill="#0F172A" />
+  </g>
+
+  <g opacity="0.55">
+    <path d="M794 112C806 125 818 140 826 156C834 140 846 125 858 112C865 128 869 145 869 164C884 157 900 153 917 152C909 167 897 180 881 190C897 200 909 213 917 229C900 228 884 224 869 217C869 236 865 253 858 269C846 256 834 241 826 225C818 241 806 256 794 269C787 253 783 236 783 217C768 224 752 228 735 229C743 213 755 200 771 190C755 180 743 167 735 152C752 153 768 157 783 164C783 145 787 128 794 112Z" fill="#FFFFFF" fill-opacity="0.45" />
+    <path d="M784 110L858 270" stroke="#14B8A6" stroke-opacity="0.18" stroke-width="4" stroke-linecap="round" />
+    <path d="M736 164L916 216" stroke="#0F172A" stroke-opacity="0.08" stroke-width="4" stroke-linecap="round" />
+  </g>
+</svg>

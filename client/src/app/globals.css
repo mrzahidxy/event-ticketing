@@ -7,6 +7,11 @@
     color-scheme: light;
     --background: 210 40% 96%;
     --foreground: 222 47% 11%;
+    --page-shell-bg:
+      url('/images/event-shell.svg'),
+      radial-gradient(circle at top left, rgba(20, 184, 166, 0.14), transparent 34%),
+      radial-gradient(circle at top right, rgba(245, 158, 11, 0.1), transparent 30%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 250, 252, 0.98));
 
     --muted: 213 33% 95%;
     --muted-foreground: 215 16% 47%;
@@ -47,6 +52,11 @@
     color-scheme: dark;
     --background: 222 47% 11%;
     --foreground: 210 40% 96%;
+    --page-shell-bg:
+      url('/images/event-shell.svg'),
+      radial-gradient(circle at top left, rgba(20, 184, 166, 0.16), transparent 28%),
+      radial-gradient(circle at bottom right, rgba(59, 130, 246, 0.12), transparent 30%),
+      linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.92));
 
     --muted: 217 34% 18%;
     --muted-foreground: 214 32% 80%;
@@ -88,7 +98,13 @@
 
   body {
     background-color: hsl(var(--background));
+    background-image: var(--page-shell-bg);
+    background-attachment: fixed;
+    background-repeat: no-repeat;
+    background-size: cover;
+    background-position: center top;
     color: hsl(var(--foreground));
+    min-height: 100vh;
     @apply antialiased;
   }
 
@@ -106,6 +122,11 @@
   *::before,
   *::after {
     border-color: hsl(var(--border));
+  }
+
+  ::selection {
+    background-color: hsl(var(--primary) / 0.22);
+    color: hsl(var(--foreground));
   }
 }
 
