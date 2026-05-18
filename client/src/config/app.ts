@@ -10,7 +10,7 @@ export const appConfig = {
     signUpPath: '/register',
     adminHome: '/admin/overview',
     appHome: '/business-owner/dashboard',
-    userHome: '/access-denied',
+    userHome: '/user/bookings',
     noAccessPath: '/access-denied',
   },
 } as const

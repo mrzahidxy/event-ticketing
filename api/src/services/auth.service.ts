@@ -36,16 +36,30 @@ const USER_SELECT = {
       id: true,
     },
   },
+  organizerMemberships: {
+    select: {
+      organizerId: true,
+    },
+    orderBy: {
+      assignedAt: 'asc',
+    },
+    take: 1,
+  },
 } as const;
 
-const withOrganizerId = <T extends { ownedOrganizer?: { id: string } | null }>(
+const withOrganizerId = <
+  T extends {
+    ownedOrganizer?: { id: string } | null;
+    organizerMemberships?: Array<{ organizerId: string }>;
+  }
+>(
   user: T
-): Omit<T, 'ownedOrganizer'> & { organizerId: string | null } => {
-  const { ownedOrganizer, ...rest } = user;
+): Omit<T, 'ownedOrganizer' | 'organizerMemberships'> & { organizerId: string | null } => {
+  const { ownedOrganizer, organizerMemberships, ...rest } = user;
 
   return {
     ...rest,
-    organizerId: ownedOrganizer?.id ?? null,
+    organizerId: ownedOrganizer?.id ?? organizerMemberships?.[0]?.organizerId ?? null,
   };
 };
 
@@ -56,7 +70,12 @@ const cacheUserProfile = async (user: SanitizedUser) => {
 };
 
 const sanitizeAndCacheUser = async <
-  T extends { passwordHash?: string; role: Role; ownedOrganizer?: { id: string } | null }
+  T extends {
+    passwordHash?: string;
+    role: Role;
+    ownedOrganizer?: { id: string } | null;
+    organizerMemberships?: Array<{ organizerId: string }>;
+  }
 >(
   user: T
 ) => {

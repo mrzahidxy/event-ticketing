@@ -69,7 +69,7 @@ const authConfig: NextAuthConfig = {
         token.email = user.email
 
         if (user.role) token.role = user.role as UserRole
-        if (user.organizerId) token.organizerId = user.organizerId
+        token.organizerId = user.organizerId ?? undefined
         if (user.permissions) token.permissions = user.permissions
         if (user.status) token.status = user.status
         if (user.token) token.accessToken = user.token
@@ -112,7 +112,7 @@ const authConfig: NextAuthConfig = {
         if (refreshed.user.role) {
           token.role = refreshed.user.role as UserRole
         }
-        token.organizerId = refreshed.user.organizerId ?? token.organizerId
+        token.organizerId = refreshed.user.organizerId ?? undefined
         token.permissions = refreshed.user.permissions ?? token.permissions
         token.status = refreshed.user.status ?? token.status
         if (refreshed.refreshCookie) {
@@ -131,7 +131,11 @@ const authConfig: NextAuthConfig = {
       session.user.email = token.email ?? session.user.email
 
       if (token.role) session.user.role = token.role as UserRole
-      if (token.organizerId) session.user.organizerId = token.organizerId as string
+      if (token.organizerId) {
+        session.user.organizerId = token.organizerId as string
+      } else {
+        delete session.user.organizerId
+      }
       if (token.permissions) session.user.permissions = token.permissions as string[]
       if (token.status) session.user.status = token.status as string
       if (token.accessToken) {

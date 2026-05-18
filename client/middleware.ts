@@ -38,7 +38,7 @@ function homeForRole(role?: string) {
   const normalized = normalizeUserRole(role)
   if (ROUTE_ROLES.admin.has(normalized)) return '/admin/overview'
   if (ROUTE_ROLES['business-owner'].has(normalized)) return '/business-owner/dashboard'
-  if (ROUTE_ROLES.user.has(normalized)) return '/access-denied'
+  if (ROUTE_ROLES.user.has(normalized)) return '/user/bookings'
   return '/access-denied'
 }
 

@@ -171,8 +171,8 @@ export default function TeamPage() {
       {!organizerId ? (
         <SectionCard title="Organizer Access">
           <p className="text-sm text-slate-600">
-            This account is not linked to an organizer. Owner and staff workflows stay blocked
-            until the backend user record includes an `organizerId` UUID.
+            This account does not currently resolve to an organizer scope. Owner and staff
+            workflows stay blocked until the backend returns an owned or assigned organizer.
           </p>
         </SectionCard>
       ) : (
