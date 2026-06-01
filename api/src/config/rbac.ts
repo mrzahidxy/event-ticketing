@@ -61,11 +61,9 @@ export const PERMISSIONS: Record<
   },
 };
 
-const ALL_PERMISSIONS = [...PERMISSION_KEYS];
-
 export const ROLE_PRESETS: Record<Role, PermissionKey[]> = {
-  [Role.ADMIN]: ALL_PERMISSIONS,
-  [Role.OWNER]: ALL_PERMISSIONS,
+  [Role.ADMIN]: [...PERMISSION_KEYS],
+  [Role.OWNER]: [...PERMISSION_KEYS],
   [Role.STAFF]: ['ORGANIZER_READ_OWN', 'EVENT_READ', 'ORGANIZER_UPDATE_OWN'],
   [Role.USER]: ['EVENT_READ'],
 };
@@ -77,8 +75,6 @@ export const ROLE_METADATA: Record<AppRole, { label: string; description: string
   [Role.USER]: { label: 'User', description: 'Standard authenticated user' },
   [GUEST_ROLE]: { label: 'Guest', description: 'Unauthenticated public access' },
 };
-
-export const permissionsForRole = (role: Role): PermissionKey[] => ROLE_PRESETS[role] ?? [];
 
 export const normalizePermissions = (input?: string[] | null): PermissionKey[] => {
   if (!Array.isArray(input)) {
@@ -102,7 +98,7 @@ export const resolvePermissions = (role: Role, explicit?: string[] | null): Perm
     return normalizePermissions(explicit);
   }
 
-  return permissionsForRole(role);
+  return ROLE_PRESETS[role] ?? [];
 };
 
 export const rbacDefinitions = () => ({

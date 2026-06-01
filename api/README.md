@@ -1,100 +1,34 @@
-# Lean Event Ticketing API
+# API
 
-Express + Prisma backend focused on a lean multi-tenant event ticketing scope.
+Express + Prisma backend for the multi-tenant event ticketing MVP.
 
-## Current Scope
-
-- Public organizer/event listing and public booking submission
-- Auth session lifecycle (`register/login/refresh/logout/me`)
-- Organizer + event management (including publish/unpublish)
-- Organizer staff assignment management
-- Booking management
-- Stripe checkout session creation and webhook reconciliation
-- Core production middleware: security, rate limiting, validation, logging, health check
-
-## Stack
-
-- Node.js 20+
-- Express
-- Prisma + PostgreSQL
-- JWT access/refresh with refresh rotation and access-token revocation
-- Redis cache/revocation store (optional in development, required in production)
-- Stripe Checkout + webhooks
+For product direction, see [../docs/project-context.md](../docs/project-context.md).
 
 ## Setup
 
-1. Copy env file:
-
 ```bash
 cp .env.example .env
-```
-
-2. Install dependencies:
-
-```bash
 npm install
-```
-
-3. Run migrations and seed:
-
-```bash
 npm run prisma:migrate
 npm run seed
-```
-
-4. Start API:
-
-```bash
 npm run dev
 ```
 
-## Scripts
+Runs on `http://localhost:4000`.
 
-- `npm run dev` - start with nodemon
-- `npm run build` - compile TypeScript
-- `npm run typecheck` - no-emit type check
-- `npm run seed` - seed lean test dataset
-- `npm run prisma:migrate` - local dev migrations
-- `npm run prisma:migrate:deploy` - deploy migrations
-- `npm run prisma:generate` - regenerate Prisma client
+## Main env
 
-## Key Endpoints
+- `DATABASE_URL`: PostgreSQL connection string
+- `JWT_SECRET`: signing key for auth tokens
+- `CORS_ORIGIN`: allowed frontend origins
+- `REDIS_URL`: Redis connection for revocation/runtime support
+- `STRIPE_SECRET_KEY`: Stripe secret key
+- `STRIPE_WEBHOOK_SECRET`: Stripe webhook secret
 
-### Health
-- `GET /health`
+## Main scripts
 
-### Auth
-- `POST /api/auth/register`
-- `POST /api/auth/login`
-- `POST /api/auth/refresh`
-- `POST /api/auth/logout`
-- `GET /api/auth/me`
-
-### Public
-- `GET /api/public/organizers/:organizerId`
-- `POST /api/public/organizers/:organizerId/bookings`
-
-### Organizer + Events
-- `POST /api/organizers`
-- `PATCH /api/organizers/:organizerId/status`
-- `GET /api/organizers/:organizerId`
-- `PATCH /api/organizers/:organizerId`
-- `DELETE /api/organizers/:organizerId`
-- `GET /api/organizers/:organizerId/events`
-- `POST /api/organizers/:organizerId/events`
-- `PATCH /api/organizers/:organizerId/events/:eventId`
-- `DELETE /api/organizers/:organizerId/events/:eventId`
-- `GET /api/organizers/:organizerId/staff`
-- `GET /api/organizers/:organizerId/staff-candidates`
-- `POST /api/organizers/:organizerId/staff`
-- `DELETE /api/organizers/:organizerId/staff/:userId`
-
-### Bookings
-- `GET /api/bookings`
-- `GET /api/bookings/:id`
-- `PATCH /api/bookings/:id`
-- `DELETE /api/bookings/:id`
-
-### Payments
-- `POST /api/payments/checkout-session`
-- `POST /api/payments/webhook`
+- `npm run dev`
+- `npm run build`
+- `npm run typecheck`
+- `npm run seed`
+- `npm run prisma:migrate`

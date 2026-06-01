@@ -6,7 +6,6 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { SessionProvider, useSession } from 'next-auth/react'
 
 import { ThemeProvider } from '@/components/providers/theme-provider'
-import { env } from '@/config/env'
 import { queryClientConfig } from '@/config/query'
 import { logoutForExpiredSession } from '@/lib/session-expiry'
 import { useAuthStore } from '@/stores/auth-store'
@@ -86,10 +85,10 @@ export function AppProvider({ children }: AppProviderProps) {
     <SessionProvider>
       <QueryClientProvider client={queryClient}>
         <SessionStoreSync />
-        <ThemeProvider>
-          {children}
-          <Toaster />
-          {env.NODE_ENV === 'development' ? (
+          <ThemeProvider>
+            {children}
+            <Toaster />
+          {process.env.NODE_ENV === 'development' ? (
             <ReactQueryDevtools initialIsOpen={false} />
           ) : null}
         </ThemeProvider>

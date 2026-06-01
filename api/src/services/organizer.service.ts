@@ -3,6 +3,8 @@ import { OrganizerRole, Prisma, Role } from '@prisma/client';
 import { prisma } from '../utils/prisma';
 import { HttpError } from '../utils/http-error';
 import type { AuthenticatedUser } from '../types/user';
+import { cache } from '../utils/cache';
+import { resolvePermissions } from '../config/rbac';
 
 const ORGANIZER_SELECT = {
   id: true,
@@ -302,25 +304,13 @@ export const organizerService = {
   },
 
   listEvents: async (organizerId: string, actor: AuthenticatedUser): Promise<EventDetail[]> => {
-    const organizer = await prisma.organizer.findUnique({
-      where: { id: organizerId },
-      select: { id: true, ownerId: true, isSuspended: true },
-    });
-
-    if (!organizer) {
-      throw new HttpError(404, 'Organizer not found');
-    }
-
-    const canViewAll = actor.role === Role.ADMIN || organizer.ownerId === actor.id;
-
-    if (actor.role !== Role.ADMIN && organizer.isSuspended) {
-      throw new HttpError(403, 'This organizer is currently suspended');
-    }
+    const scope = await getOrganizerScope(organizerId, actor);
+    assertStaffOrOwnerOrAdmin(scope, 'view events');
+    assertOrganizerActive(scope, 'view events');
 
     return prisma.event.findMany({
       where: {
-        organizerId: organizer.id,
-        ...(canViewAll ? {} : { isPublished: true }),
+        organizerId: scope.organizer.id,
       },
       orderBy: { createdAt: 'desc' },
       select: EVENT_SELECT,
@@ -556,11 +546,14 @@ export const organizerService = {
     }
 
     const assignment = await prisma.$transaction(async (tx) => {
-      if (staffUser.role === Role.USER) {
+      if (staffUser.role === Role.USER || staffUser.role === Role.STAFF) {
         await tx.user.update({
           where: { id: staffUser.id },
-          data: { role: Role.STAFF },
-        })
+          data: {
+            role: Role.STAFF,
+            permissions: resolvePermissions(Role.STAFF),
+          },
+        });
       }
 
       return tx.organizerMembership.upsert({
@@ -578,8 +571,12 @@ export const organizerService = {
           userId: staffUser.id,
           role: OrganizerRole.STAFF,
         },
-      })
-    })
+      });
+    });
+
+    if (cache.isConnectedToRedis()) {
+      await cache.del(`user:${staffUser.id}`);
+    }
 
     return assignment;
   },
@@ -602,13 +599,33 @@ export const organizerService = {
       throw new HttpError(404, 'Staff assignment not found');
     }
 
-    await prisma.organizerMembership.delete({
-      where: {
-        organizerId_userId: {
-          organizerId: scope.organizer.id,
-          userId,
+    await prisma.$transaction(async (tx) => {
+      await tx.organizerMembership.delete({
+        where: {
+          organizerId_userId: {
+            organizerId: scope.organizer.id,
+            userId,
+          },
         },
-      },
+      });
+
+      const remainingAssignments = await tx.organizerMembership.count({
+        where: { userId },
+      });
+
+      if (remainingAssignments === 0) {
+        await tx.user.update({
+          where: { id: userId },
+          data: {
+            role: Role.USER,
+            permissions: resolvePermissions(Role.USER),
+          },
+        });
+      }
     });
+
+    if (cache.isConnectedToRedis()) {
+      await cache.del(`user:${userId}`);
+    }
   },
 };

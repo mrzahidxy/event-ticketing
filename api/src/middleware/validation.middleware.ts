@@ -11,67 +11,28 @@ const sanitizeValue = (value: unknown): unknown => {
     return xss(value);
   }
 
-  if (value instanceof Date) {
-    return value;
-  }
-
   if (Array.isArray(value)) {
     return value.map(sanitizeValue);
   }
 
-  if (value && typeof value === 'object') {
-    return Object.entries(value).reduce<Record<string, unknown>>((acc, [key, val]) => {
-      acc[key] = sanitizeValue(val);
-      return acc;
-    }, {});
+  if (!value || typeof value !== 'object' || value instanceof Date) {
+    return value;
   }
 
-  return value;
-};
-
-const replaceObjectContents = (target: Record<string, unknown>, value: unknown) => {
-  for (const key of Object.keys(target)) {
-    delete target[key];
-  }
-
-  if (value && typeof value === 'object') {
-    Object.assign(target, value as Record<string, unknown>);
-  }
+  return Object.fromEntries(Object.entries(value).map(([key, val]) => [key, sanitizeValue(val)]));
 };
 
 export const validateRequest =
   <T extends ZodTypeAny>(schema: T, property: RequestProperty = 'body') =>
   (req: Request, _res: Response, next: NextFunction) => {
-    try {
-      const sanitized = sanitizeValue(req[property]);
-      const result = schema.safeParse(sanitized);
+    const result = schema.safeParse(sanitizeValue(req[property]));
 
-      if (!result.success) {
-        const formatted = result.error.flatten();
-        next(new HttpError(400, 'Validation failed', formatted));
-        return;
-      }
-
-      const requestWithProperty = req as Request & Record<RequestProperty, unknown>;
-
-      if (property === 'body') {
-        requestWithProperty.body = result.data;
-      } else {
-        const current = requestWithProperty[property];
-        if (current && typeof current === 'object') {
-          replaceObjectContents(current as Record<string, unknown>, result.data);
-        } else {
-          Object.defineProperty(req, property, {
-            configurable: true,
-            enumerable: true,
-            writable: true,
-            value: result.data && typeof result.data === 'object' ? result.data : {},
-          });
-        }
-      }
-
-      next();
-    } catch (error) {
-      next(error);
+    if (!result.success) {
+      next(new HttpError(400, 'Validation failed', result.error.flatten()));
+      return;
     }
+
+    (req as Request & Record<RequestProperty, unknown>)[property] = result.data;
+
+    next();
   };
