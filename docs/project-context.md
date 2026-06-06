@@ -1,71 +1,56 @@
 # Project Context
 
-This repo is the implementation workspace for a **multi-tenant event ticketing MVP**.
+This repository is the base for the **Multi-Tenant Event Intelligence Platform**.
 
-## What we are building
+The project extends an existing event-ticketing MVP where organizers manage tenant-scoped events and bookings, guests purchase tickets, staff check in tickets, and booking/check-in activity eventually feeds analytics summaries and recommendation outputs.
 
-The product goal is:
+## Current Repo Baseline
 
-- organizers manage tenant-scoped events, bookings, and staff access
-- guests browse public events and purchase tickets
-- Stripe handles checkout and the backend finalizes bookings from verified webhooks
-- the platform grows toward QR tickets, check-in, analytics, and recommendations
+The current focused local setup includes:
 
-## What matters in this repo
+- `api/` Express + Prisma backend
+- `client/` Next.js frontend
+- PostgreSQL for application data
+- Redis for cache/token revocation support
+- Stripe checkout and webhook code paths
 
-These are the main implementation constraints:
+Existing working flows should be extended carefully, not rewritten casually.
 
-- tenant isolation is mandatory for organizer-owned data
-- payment confirmation must come from Stripe webhook processing, not frontend redirects
-- backend and frontend contract changes must stay aligned across both apps
-- the backend should stay a modular monolith unless a change clearly requires more
-- existing working flows should be extended carefully, not rewritten casually
-- avoid over-engineering; prefer the smallest safe change that solves the task
+## Current Setup Boundaries
 
-## Current repo shape
+- `GET /health` returns only `{ "status": "ok" }`.
+- Health endpoints must not expose secrets, database state, Redis state, uptime, or internal service details.
+- Real `.env` files are ignored and should not be committed.
+- Docker images must not copy `.env` files into the image.
+- API containers listen on `0.0.0.0`.
+- The API respects `PORT`.
+- Prisma migrations and seed data are run explicitly from `api/`.
 
-- `api/`: Express + Prisma backend with JWT auth, organizer/event flows, public booking flow, Stripe checkout, and webhook handling
-- `client/`: Next.js frontend with admin/business-owner foundations and public-facing app structure
+## Known Limitations
 
-## Current MVP baseline
+- Docker Compose starts the app stack but does not automatically run Prisma migrations or seed data.
+- Redis is optional during API development but required in production.
+- Stripe examples use placeholders; real payment testing needs Stripe test credentials and webhook forwarding.
+- `analytics-worker/` and `recommendation-service/` are present in the workspace but are outside this setup reliability pass.
 
-What already exists in some form:
+## Next Project Direction
 
-- auth and role-based access
-- organizer and event management
-- public event browsing
-- booking flow
-- Stripe checkout and webhook integration
-- Redis in the backend stack
+After setup reliability is stable, continue with:
 
-## Next work that this context should guide
+- tenant isolation and role verification
+- ticket-tier lifecycle hardening
+- booking and payment finalization reliability
+- QR ticket issuance and ticket lookup
+- staff check-in and Redis duplicate-scan prevention
+- Kafka event publishing
+- analytics worker and summary read model
+- FastAPI recommendation service
+- tests, docs, diagrams, screenshots, and demo polish
 
-Main missing or partial areas:
+## Decision Rules
 
-- stronger ticket-tier lifecycle support
-- QR ticket issuance
-- ticket validation and check-in flow
-- duplicate-scan protection
-- analytics aggregation and reporting tables
-- recommendation-service integration
-- reliable event publishing for downstream analytics
-
-## How to use this document
-
-Use this as the project brief when making decisions:
-
-- keep tenant boundaries explicit
-- keep payment and booking state conservative and verifiable
-- keep API and client behavior aligned when one side changes
-- prefer small changes over over-engineered abstractions
-- treat the current codebase as the source of truth for what exists today
-
-This document sets product direction. Execution rules for agents live in [`../agent.md`](../agent.md).
-
-## Source
-
-Primary reference:
-
-- [ClickUp docs](https://app.clickup.com/90181612367/v/dc/2kzkwcuf-2358/2kzkwcuf-2918)
-
-If the current codebase and the source materials differ, use the ClickUp task as the product brief and refactor carefully without breaking working flows.
+- Keep tenant boundaries explicit.
+- Keep payment and booking state conservative and verifiable.
+- Keep API and client behavior aligned.
+- Prefer small safe changes over broad rewrites.
+- Treat the current codebase as the source of truth for what exists today.

@@ -10,8 +10,6 @@ import { paymentWebhookRouter } from './routes/payment.routes';
 import { errorHandler, notFoundHandler } from './middleware/error.middleware';
 import { env } from './utils/env';
 import { httpLogger, logger, loggerWithRequestContext } from './utils/logger';
-import { prisma } from './utils/prisma';
-import { cache } from './utils/cache';
 import { requestIdMiddleware } from './middleware/request-id.middleware';
 import { serve, setup, swaggerSpec, swaggerUiOptions } from './middleware/swagger.middleware';
 
@@ -54,36 +52,8 @@ app.use(compression());
 app.use('/api/payments', paymentWebhookRouter);
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
-app.get('/health', async (_req, res) => {
-  const timestamp = new Date().toISOString();
-  const uptime = process.uptime();
-  const services: { database: 'up' | 'down'; cache: 'up' | 'down' | 'disabled' } = {
-    database: 'up',
-    cache: !env.REDIS_URL ? 'disabled' : cache.isConnectedToRedis() ? 'up' : 'down',
-  };
-
-  try {
-    await prisma.$queryRaw`SELECT 1`;
-  } catch (error) {
-    services.database = 'down';
-    res.status(503).json({
-      status: 'error',
-      timestamp,
-      uptime,
-      services,
-      error: 'Database connection failed',
-    });
-    return;
-  }
-
-  const status = services.cache === 'down' ? 'degraded' : 'ok';
-
-  res.status(200).json({
-    status,
-    timestamp,
-    uptime,
-    services,
-  });
+app.get('/health', (_req, res) => {
+  res.status(200).json({ status: 'ok' });
 });
 
 // Swagger documentation
