@@ -58,7 +58,7 @@ router.delete(
 
 router.get(
   '/:organizerId/events',
-  requireAuth({ permissions: ['EVENT_READ'] }),
+  requireAuth({ permissions: ['ORGANIZER_READ_OWN'] }),
   validateRequest(organizerIdParamSchema, 'params'),
   organizerController.listEvents
 );

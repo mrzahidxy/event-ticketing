@@ -29,6 +29,15 @@ const USER_SELECT = {
       id: true,
     },
   },
+  organizerMemberships: {
+    select: {
+      organizerId: true,
+    },
+    orderBy: {
+      assignedAt: 'asc',
+    },
+    take: 1,
+  },
   createdAt: true,
   updatedAt: true,
 } as const;
@@ -41,6 +50,7 @@ type AuthUserRecord = {
   permissions?: string[] | null;
   organizerId?: string | null;
   ownedOrganizer?: { id: string } | null;
+  organizerMemberships?: Array<{ organizerId: string }>;
   createdAt?: Date;
   updatedAt?: Date;
 };
@@ -56,7 +66,11 @@ const toAuthenticatedUser = (user: AuthUserRecord): SanitizedUser => ({
   name: user.name,
   role: user.role,
   roles: [user.role],
-  organizerId: user.organizerId ?? user.ownedOrganizer?.id ?? null,
+  organizerId:
+    user.organizerId ??
+    user.ownedOrganizer?.id ??
+    user.organizerMemberships?.[0]?.organizerId ??
+    null,
   permissions: resolvePermissions(user.role, user.permissions ?? undefined),
   ...(user.createdAt ? { createdAt: user.createdAt } : {}),
   ...(user.updatedAt ? { updatedAt: user.updatedAt } : {}),

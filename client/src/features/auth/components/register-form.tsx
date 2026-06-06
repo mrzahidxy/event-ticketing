@@ -60,11 +60,10 @@ export function RegisterForm() {
     >
       <div className="space-y-1 text-center">
         <h1 className="text-2xl font-semibold text-white">
-          Create an account
+          Create your account
         </h1>
         <p className="text-sm text-white/85">
-          Sign up with email/password then plug in OAuth providers when you are
-          ready.
+          Register with your email and password to book events and manage your account.
         </p>
       </div>
 

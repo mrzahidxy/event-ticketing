@@ -36,16 +36,30 @@ const USER_SELECT = {
       id: true,
     },
   },
+  organizerMemberships: {
+    select: {
+      organizerId: true,
+    },
+    orderBy: {
+      assignedAt: 'asc',
+    },
+    take: 1,
+  },
 } as const;
 
-const withOrganizerId = <T extends { ownedOrganizer?: { id: string } | null }>(
+const withOrganizerId = <
+  T extends {
+    ownedOrganizer?: { id: string } | null;
+    organizerMemberships?: Array<{ organizerId: string }>;
+  }
+>(
   user: T
-): Omit<T, 'ownedOrganizer'> & { organizerId: string | null } => {
-  const { ownedOrganizer, ...rest } = user;
+): Omit<T, 'ownedOrganizer' | 'organizerMemberships'> & { organizerId: string | null } => {
+  const { ownedOrganizer, organizerMemberships, ...rest } = user;
 
   return {
     ...rest,
-    organizerId: ownedOrganizer?.id ?? null,
+    organizerId: ownedOrganizer?.id ?? organizerMemberships?.[0]?.organizerId ?? null,
   };
 };
 
@@ -53,6 +67,21 @@ const cacheUserProfile = async (user: SanitizedUser) => {
   if (cache.isConnectedToRedis()) {
     await cache.set(`user:${user.id}`, user, USER_CACHE_TTL_SECONDS);
   }
+};
+
+const sanitizeAndCacheUser = async <
+  T extends {
+    passwordHash?: string;
+    role: Role;
+    ownedOrganizer?: { id: string } | null;
+    organizerMemberships?: Array<{ organizerId: string }>;
+  }
+>(
+  user: T
+) => {
+  const sanitized = sanitizeUser(withOrganizerId(user));
+  await cacheUserProfile(sanitized);
+  return sanitized;
 };
 
 const buildAuthResponse = (user: SanitizedUser, tokens: TokenPair) => ({
@@ -101,9 +130,7 @@ export const authService = {
       select: USER_SELECT,
     });
 
-    const sanitized = sanitizeUser(withOrganizerId(user));
-    await cacheUserProfile(sanitized);
-
+    const sanitized = await sanitizeAndCacheUser(user);
     const tokens = await issueTokensForUser(sanitized);
     return buildAuthResponse(sanitized, tokens);
   },
@@ -126,9 +153,7 @@ export const authService = {
       throw new HttpError(401, 'Invalid credentials');
     }
 
-    const sanitized = sanitizeUser(withOrganizerId(user));
-    await cacheUserProfile(sanitized);
-
+    const sanitized = await sanitizeAndCacheUser(user);
     const tokens = await issueTokensForUser(sanitized);
     return buildAuthResponse(sanitized, tokens);
   },
@@ -150,9 +175,7 @@ export const authService = {
       throw new HttpError(401, 'User could not be found');
     }
 
-    const sanitized = sanitizeUser(withOrganizerId(user));
-    await cacheUserProfile(sanitized);
-
+    const sanitized = await sanitizeAndCacheUser(user);
     await tokenService.revokeAccessToken(currentAccessToken);
 
     return buildAuthResponse(sanitized, tokens);
@@ -182,9 +205,6 @@ export const authService = {
       throw new HttpError(404, 'User not found');
     }
 
-    const sanitized = sanitizeUser(withOrganizerId(user));
-    await cacheUserProfile(sanitized);
-
-    return sanitized;
+    return sanitizeAndCacheUser(user);
   },
 };

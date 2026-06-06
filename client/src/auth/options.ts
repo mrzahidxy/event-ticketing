@@ -9,7 +9,7 @@ import {
   loginWithBackend,
   logoutFromBackend,
   refreshBackendSession,
-} from '@/server/auth/backend-auth'
+} from '@/lib/backend-auth'
 import type { UserRole } from '@/types/user'
 
 const credentialProvider = Credentials({
@@ -48,22 +48,7 @@ const credentialProvider = Credentials({
   },
 })
 
-const fallbackAuthSecret = 'event-ticketing-dev-auth-secret'
-
-function resolveAuthSecret() {
-  const configuredSecret = env.NEXTAUTH_SECRET ?? env.AUTH_SECRET
-  if (configuredSecret) {
-    return configuredSecret
-  }
-
-  if (env.NODE_ENV !== 'production') {
-    return fallbackAuthSecret
-  }
-
-  throw new Error('NEXTAUTH_SECRET or AUTH_SECRET environment variable is required')
-}
-
-const secret = resolveAuthSecret()
+const secret = env.NEXTAUTH_SECRET
 
 const authConfig: NextAuthConfig = {
   secret,
@@ -82,33 +67,19 @@ const authConfig: NextAuthConfig = {
         token.sub = String(user.id)
         token.name = user.name
         token.email = user.email
-        if ('role' in user && user.role) {
-          token.role = user.role as UserRole
-        }
-        if ('organizerId' in user && user.organizerId) {
-          token.organizerId = user.organizerId
-        }
-        if ('permissions' in user && user.permissions) {
-          token.permissions = user.permissions
-        }
-        if ('status' in user && user.status) {
-          token.status = user.status
-        }
-        if ('token' in user && user.token) {
-          token.accessToken = user.token
-        }
-        if ('accessTokenExpiresAt' in user && user.accessTokenExpiresAt) {
+
+        if (user.role) token.role = user.role as UserRole
+        token.organizerId = user.organizerId ?? undefined
+        if (user.permissions) token.permissions = user.permissions
+        if (user.status) token.status = user.status
+        if (user.token) token.accessToken = user.token
+        if (user.accessTokenExpiresAt)
           token.accessTokenExpiresAt = user.accessTokenExpiresAt
-        }
-        if ('refreshToken' in user && user.refreshToken) {
-          token.refreshToken = user.refreshToken
-        }
-        if ('refreshTokenCookieName' in user && user.refreshTokenCookieName) {
+        if (user.refreshToken) token.refreshToken = user.refreshToken
+        if (user.refreshTokenCookieName)
           token.refreshTokenCookieName = user.refreshTokenCookieName
-        }
-        if ('refreshTokenExpiresAt' in user && user.refreshTokenExpiresAt) {
+        if (user.refreshTokenExpiresAt)
           token.refreshTokenExpiresAt = user.refreshTokenExpiresAt
-        }
       }
 
       if (!token.accessToken || !token.accessTokenExpiresAt) {
@@ -141,7 +112,7 @@ const authConfig: NextAuthConfig = {
         if (refreshed.user.role) {
           token.role = refreshed.user.role as UserRole
         }
-        token.organizerId = refreshed.user.organizerId ?? token.organizerId
+        token.organizerId = refreshed.user.organizerId ?? undefined
         token.permissions = refreshed.user.permissions ?? token.permissions
         token.status = refreshed.user.status ?? token.status
         if (refreshed.refreshCookie) {
@@ -155,34 +126,24 @@ const authConfig: NextAuthConfig = {
       }
     },
     async session({ session, token }) {
-      if (token.sub) {
-        session.user.id = token.sub
-      }
-      if (token.name) {
-        session.user.name = token.name
-      }
-      if (token.email) {
-        session.user.email = token.email
-      }
-      if (token.role) {
-        session.user.role = token.role as UserRole
-      }
+      session.user.id = token.sub ?? session.user.id
+      session.user.name = token.name ?? session.user.name
+      session.user.email = token.email ?? session.user.email
+
+      if (token.role) session.user.role = token.role as UserRole
       if (token.organizerId) {
         session.user.organizerId = token.organizerId as string
+      } else {
+        delete session.user.organizerId
       }
-      if (token.permissions) {
-        session.user.permissions = token.permissions as string[]
-      }
-      if (token.status) {
-        session.user.status = token.status as string
-      }
+      if (token.permissions) session.user.permissions = token.permissions as string[]
+      if (token.status) session.user.status = token.status as string
       if (token.accessToken) {
         session.accessToken = token.accessToken as string
         session.user.token = token.accessToken as string
       }
-      if (token.accessTokenExpiresAt) {
+      if (token.accessTokenExpiresAt)
         session.accessTokenExpiresAt = token.accessTokenExpiresAt as string
-      }
       return session
     },
   },

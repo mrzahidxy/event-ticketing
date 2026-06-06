@@ -85,7 +85,12 @@ PONG
 
 The API logs `Redis client connected` after startup when `REDIS_URL` is reachable. In development, the API can run without Redis; in production, `REDIS_URL` is required.
 
-## Key Endpoints
+- `DATABASE_URL`: PostgreSQL connection string
+- `JWT_SECRET`: signing key for auth tokens
+- `CORS_ORIGIN`: allowed frontend origins
+- `REDIS_URL`: Redis connection for revocation/runtime support
+- `STRIPE_SECRET_KEY`: Stripe secret key
+- `STRIPE_WEBHOOK_SECRET`: Stripe webhook secret
 
 - `GET /health`
 - `POST /api/auth/register`

@@ -198,8 +198,8 @@ export default function EventPage() {
       {!organizerId ? (
         <SectionCard title="Organizer Access">
           <p className="text-sm text-slate-600">
-            This account is not linked to an organizer. Event CRUD is blocked until the backend
-            user record includes an `organizerId` UUID.
+            This account does not currently resolve to an organizer scope. Event CRUD stays
+            blocked until the backend returns an owned or assigned organizer.
           </p>
         </SectionCard>
       ) : (

@@ -1,64 +1,65 @@
 # Agent Guide
 
-## Scope
+## Purpose
 
-This is a multi-service Multi-Tenant Event Intelligence Platform. Keep changes focused, inspect the relevant service before editing, and avoid broad rewrites unless the task explicitly asks for them.
+This repository is a two-part implementation workspace for a **multi-tenant event ticketing MVP**:
 
-## Service Layout
+- `api/` contains the Express + Prisma backend
+- `client/` contains the Next.js 15 frontend
 
-- `client`: Next.js frontend. Follow `client/agent.md` for frontend-specific work.
-- `api`: Express, TypeScript, Prisma, PostgreSQL API. Follow `api/AGENT.md` for API-specific work.
-- `recommendation-service`: FastAPI demo recommendation service.
-- `analytics-worker`: Node.js demo analytics worker.
-- `docker-compose.yml`: local multi-service runtime for Docker development.
-- `.env.example`: local placeholder environment values only.
+This file defines repo-level guidance. Product and architecture context lives here:
 
-## Local Docker Workflow
+- [`docs/project-context.md`](./docs/project-context.md)
 
-Use the root Compose setup for local integration work:
+## Core Rule
 
-```bash
-cp .env.example .env
-docker compose up -d --build
-docker compose ps
-```
+Avoid over-engineering. Make the smallest change that solves the task without breaking existing behavior.
 
-Useful logs:
+## Priorities
 
-```bash
-docker compose logs api
-docker compose logs recommendation-service
-docker compose logs analytics-worker
-```
+1. Preserve tenant isolation for organizer-scoped data and actions.
+2. Preserve payment correctness. Stripe webhook confirmation is the source of truth for finalized bookings.
+3. Keep backend and frontend contracts aligned when behavior changes cross app boundaries.
+4. Prefer narrow, low-risk fixes over refactors or redesigns.
+5. Keep work aligned with the current MVP direction in `docs/project-context.md`.
 
-Health URLs:
+## Working Rules
 
-- Frontend: `http://localhost:3000`
-- API: `http://localhost:4000/health`
-- Recommendation service: `http://localhost:8000/health`
+- Read the relevant app guide before editing code in `api/` or `client/`.
+- Reuse existing utilities, validation, auth, and feature patterns before adding new code.
+- Do not change working architecture, naming, or flow structure unless the task requires it.
+- Do not perform repo-wide cleanup, renames, or restructures unless explicitly requested.
+- Do not fix unrelated issues while doing a scoped task.
+- Do not add abstractions, helpers, or layers unless they remove a real problem in the current task.
+- Keep documentation updated only when behavior, contracts, or setup materially change.
 
-## Change Rules
+## Boundaries
 
-- Do not commit real secrets or replace placeholder env values with real credentials.
-- Do not add production deployment, Kubernetes, VPS, Nginx, or Cloudflare config unless explicitly requested.
-- Do not run database migrations from Dockerfiles or health checks.
-- Keep Docker changes local-development focused unless the task says otherwise.
-- Preserve existing service boundaries; do not move API code into the frontend or worker code into the API casually.
-- Prefer minimal, repo-specific changes over generic scaffolding.
+- Put backend business rules in `api/`.
+- Put frontend UI composition and client behavior in `client/`.
+- Do not duplicate business logic across both apps unless the boundary requires it.
+- If a change affects both apps, verify both sides instead of patching only one.
+
+## High-Risk Areas
+
+Edit carefully when touching:
+
+- auth and session handling
+- RBAC or staff/owner permission logic
+- organizer scoping and tenant filters
+- booking finalization and payment reconciliation
+- middleware, route protection, and environment configuration
 
 ## Verification
 
-Run the narrowest useful checks for the changed surface:
+Run the narrowest useful checks for the changed area:
 
-- Docker Compose changes: `docker compose config`
-- API changes: run `npm run typecheck` or `npm run build` from `api` when dependencies are available.
-- Frontend changes: run `npm run typecheck` or `npm run build` from `client` when dependencies are available.
-- Python service changes: run `python -m py_compile app/main.py` from `recommendation-service`.
-- Worker changes: run `node --check src/index.js` from `analytics-worker`.
+- backend changes: relevant `api` checks
+- frontend changes: relevant `client` checks
+- cross-app changes: verify both sides
 
-If Docker Desktop is not running, report the Docker engine blocker instead of treating it as an application failure.
+If you skip verification, state that clearly.
 
-## Known Local Gaps
+## Good Agent Work
 
-- Compose does not run Prisma migrations automatically yet.
-- `analytics-worker` is currently a demo worker and has no HTTP health endpoint.
+Good work in this repo is scoped, tenant-safe, contract-aware, and verified. Bad work is over-engineered, cross-cutting, or casually breaks auth, payment, tenant scoping, or existing working flows.
