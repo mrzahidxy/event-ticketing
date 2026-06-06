@@ -13,51 +13,25 @@ const healthPaths: OAS3Definition['paths'] = {
     get: {
       tags: ['Health'],
       summary: 'Service health status',
-      description:
-        'Returns the health status of the API along with database and cache connectivity information. Cache may be intentionally disabled when Redis is not configured.',
+      description: 'Returns a minimal API health response without exposing internals.',
       responses: {
         200: {
-          description: 'Service is healthy or degraded',
+          description: 'Service is reachable',
           content: {
             'application/json': {
               schema: {
                 type: 'object',
+                required: ['status'],
                 properties: {
                   status: {
                     type: 'string',
-                    description: '`ok` when all services are healthy, otherwise `degraded`.',
+                    enum: ['ok'],
                     example: 'ok',
-                  },
-                  timestamp: {
-                    type: 'string',
-                    format: 'date-time',
-                    description: 'ISO timestamp when the health check was performed.',
-                  },
-                  uptime: {
-                    type: 'number',
-                    description: 'Process uptime in seconds.',
-                    example: 123.45,
-                  },
-                  services: {
-                    type: 'object',
-                    properties: {
-                      database: {
-                        type: 'string',
-                        enum: ['up', 'down'],
-                      },
-                      cache: {
-                        type: 'string',
-                        enum: ['up', 'down', 'disabled'],
-                      },
-                    },
                   },
                 },
               },
             },
           },
-        },
-        503: {
-          description: 'One or more services are unavailable.',
         },
       },
     },

@@ -1,82 +1,101 @@
-# Lean Event Ticketing API
+# Multi-Tenant Event Intelligence Platform API
 
-Express + Prisma backend focused on a lean multi-tenant event ticketing scope.
-
-## Current Scope
-
-- Public organizer/event listing and public booking submission
-- Auth session lifecycle (`register/login/refresh/logout/me`)
-- Organizer + event management (including publish/unpublish)
-- Organizer staff assignment management
-- Booking management
-- Stripe checkout session creation and webhook reconciliation
-- Core production middleware: security, rate limiting, validation, logging, health check
+Express + Prisma backend for the Multi-Tenant Event Intelligence Platform.
 
 ## Stack
 
 - Node.js 20+
 - Express
 - Prisma + PostgreSQL
-- JWT access/refresh with refresh rotation and access-token revocation
-- Redis cache/revocation store (optional in development, required in production)
-- Stripe Checkout + webhooks
+- Redis through `ioredis`
+- Stripe Checkout and webhooks
 
 ## Setup
 
-1. Copy env file:
+Start the shared local dependencies from the repo root:
+
+```bash
+docker compose up -d postgres redis
+docker compose exec redis redis-cli ping
+```
+
+Then run the API:
 
 ```bash
 cp .env.example .env
-```
-
-2. Install dependencies:
-
-```bash
 npm install
-```
-
-3. Run migrations and seed:
-
-```bash
+npm run prisma:generate
 npm run prisma:migrate
 npm run seed
-```
-
-4. Start API:
-
-```bash
 npm run dev
 ```
+
+PowerShell copy command:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+The default `.env.example` expects:
+
+- PostgreSQL at `localhost:5433`
+- Redis at `localhost:6379`
+- API port `4000`
+- API host `0.0.0.0`
 
 ## Scripts
 
 - `npm run dev` - start with nodemon
 - `npm run build` - compile TypeScript
 - `npm run typecheck` - no-emit type check
-- `npm run seed` - seed lean test dataset
-- `npm run prisma:migrate` - local dev migrations
-- `npm run prisma:migrate:deploy` - deploy migrations
+- `npm run seed` - seed local test data
+- `npm run db:setup` - run local migration and seed
 - `npm run prisma:generate` - regenerate Prisma client
+- `npm run prisma:migrate` - run local dev migrations
+- `npm run prisma:migrate:deploy` - apply existing migrations non-interactively
+- `npm run prisma:studio` - open Prisma Studio
+
+## Health
+
+```bash
+curl http://localhost:4000/health
+```
+
+Expected response:
+
+```json
+{"status":"ok"}
+```
+
+The health endpoint intentionally does not expose database, Redis, secrets, uptime, or other internals.
+
+## Redis Verification
+
+From the repo root:
+
+```bash
+docker compose exec redis redis-cli ping
+```
+
+Expected response:
+
+```text
+PONG
+```
+
+The API logs `Redis client connected` after startup when `REDIS_URL` is reachable. In development, the API can run without Redis; in production, `REDIS_URL` is required.
 
 ## Key Endpoints
 
-### Health
 - `GET /health`
-
-### Auth
 - `POST /api/auth/register`
 - `POST /api/auth/login`
 - `POST /api/auth/refresh`
 - `POST /api/auth/logout`
 - `GET /api/auth/me`
-
-### Public
 - `GET /api/public/organizers/:organizerId`
 - `POST /api/public/organizers/:organizerId/bookings`
-
-### Organizer + Events
 - `POST /api/organizers`
-- `PATCH /api/organizers/:organizerId/status`
 - `GET /api/organizers/:organizerId`
 - `PATCH /api/organizers/:organizerId`
 - `DELETE /api/organizers/:organizerId`
@@ -84,17 +103,9 @@ npm run dev
 - `POST /api/organizers/:organizerId/events`
 - `PATCH /api/organizers/:organizerId/events/:eventId`
 - `DELETE /api/organizers/:organizerId/events/:eventId`
-- `GET /api/organizers/:organizerId/staff`
-- `GET /api/organizers/:organizerId/staff-candidates`
-- `POST /api/organizers/:organizerId/staff`
-- `DELETE /api/organizers/:organizerId/staff/:userId`
-
-### Bookings
 - `GET /api/bookings`
 - `GET /api/bookings/:id`
 - `PATCH /api/bookings/:id`
 - `DELETE /api/bookings/:id`
-
-### Payments
 - `POST /api/payments/checkout-session`
 - `POST /api/payments/webhook`

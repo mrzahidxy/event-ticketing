@@ -43,7 +43,7 @@ type BackendSessionInput = {
   refreshCookie?: BackendRefreshCookie | null
 }
 
-const API_BASE_URL = env.NEXT_PUBLIC_API_BASE_URL
+const API_BASE_URL = env.API_INTERNAL_BASE_URL ?? env.NEXT_PUBLIC_API_BASE_URL
 
 function buildBackendUrl(path: string) {
   return new URL(path, API_BASE_URL).toString()

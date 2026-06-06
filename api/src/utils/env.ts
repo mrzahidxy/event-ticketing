@@ -23,10 +23,10 @@ const envBoolean = (defaultValue: boolean) =>
   );
 
 const baseEnvSchema = z.object({
-  APP_NAME: z.string().default('event ticketing platfrom'),
+  APP_NAME: z.string().default('Multi-Tenant Event Intelligence Platform'),
   APP_DESCRIPTION: z
     .string()
-    .default('event ticketing platfrom'),
+    .default('Multi-tenant event intelligence platform'),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().default(4000),
   HOST: z.string().default('0.0.0.0'),
@@ -40,7 +40,7 @@ const baseEnvSchema = z.object({
   COOKIE_DOMAIN: z.string().optional(),
   COOKIE_SECURE: envBoolean(false),
   COOKIE_SAME_SITE: z.enum(['lax', 'strict', 'none']).default('lax'),
-  JWT_ISSUER: z.string().default('event-ticketing-platfrom'),
+  JWT_ISSUER: z.string().default('event-ticketing'),
   JWT_AUDIENCE: z.string().optional(),
   CORS_ORIGIN: z
     .string()

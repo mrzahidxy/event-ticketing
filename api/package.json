@@ -1,7 +1,7 @@
 {
-  "name": "event-ticketing-platfrom",
+  "name": "event-ticketing-api",
   "version": "1.0.0",
-  "description": "event ticketing platfrom",
+  "description": "Multi-Tenant Event Intelligence Platform Express API",
   "private": true,
   "main": "dist/server.js",
   "scripts": {
@@ -23,13 +23,11 @@
     "node": ">=20"
   },
   "keywords": [
-    "pern",
     "express",
     "prisma",
-    "boilerplate",
     "mvp",
+    "event-ticketing",
     "stripe",
-    "cloudinary",
     "typescript"
   ],
   "author": "",
