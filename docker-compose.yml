@@ -46,8 +46,8 @@ services:
       APP_DESCRIPTION: ${APP_DESCRIPTION:-Local multi-tenant event intelligence platform}
       HOST: 0.0.0.0
       PORT: 4000
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-event_ticketing}?schema=public
-      DIRECT_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-event_ticketing}?schema=public
+      DATABASE_URL: ${DATABASE_URL:?required}
+      DIRECT_URL: ${DIRECT_URL:?required}
       JWT_SECRET: ${JWT_SECRET:-change-me-jwt-secret}
       REDIS_URL: redis://redis:6379
       CORS_ORIGIN: http://localhost:3000,http://127.0.0.1:3000,http://frontend:3000
@@ -76,7 +76,7 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
       POSTGRES_DB: ${POSTGRES_DB:-event_ticketing}
     ports:
       - "${POSTGRES_PORT:-5433}:5432"
