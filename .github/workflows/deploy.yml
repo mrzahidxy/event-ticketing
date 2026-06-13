@@ -62,7 +62,25 @@ jobs:
             docker compose --env-file .env -f docker-compose.prod.yml up -d
             docker image prune -f
 
-            curl -fsS http://127.0.0.1:4000/health
+            echo "Waiting for API health check..."
+
+            for i in {1..30}; do
+              if curl -fsS http://127.0.0.1:4000/health; then
+                echo "API is healthy"
+                break
+              fi
+
+              echo "API not ready yet. Attempt $i/30"
+              sleep 5
+
+              if [ "$i" -eq 30 ]; then
+                echo "API failed health check"
+                docker compose --env-file .env -f docker-compose.prod.yml ps
+                docker compose --env-file .env -f docker-compose.prod.yml logs --tail=100 api
+                exit 1
+              fi
+            done
+
             if [ -n "${API_HEALTHCHECK_URL:-}" ]; then
               curl -fsS "${API_HEALTHCHECK_URL}"
             fi
