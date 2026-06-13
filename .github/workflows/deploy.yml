@@ -1,0 +1,67 @@
+name: Deploy to VPS
+
+on:
+  workflow_run:
+    workflows:
+      - Build and Push Client Image
+    types:
+      - completed
+    branches:
+      - main
+
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+
+    steps:
+      - name: Confirm both image workflows succeeded
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          for workflow in "Build and Push API Image" "Build and Push Client Image"; do
+            echo "Waiting for ${workflow} on ${HEAD_SHA}"
+            for attempt in {1..30}; do
+              conclusion="$(gh run list --workflow "${workflow}" --commit "${HEAD_SHA}" --status completed --limit 1 --json conclusion --jq '.[0].conclusion // empty')"
+              if [ "${conclusion}" = "success" ]; then
+                echo "${workflow} succeeded"
+                break
+              fi
+              if [ -n "${conclusion}" ] && [ "${conclusion}" != "success" ]; then
+                echo "${workflow} completed with ${conclusion}"
+                exit 1
+              fi
+              if [ "${attempt}" -eq 30 ]; then
+                echo "${workflow} did not complete in time"
+                exit 1
+              fi
+              sleep 20
+            done
+          done
+
+      - name: Deploy on VPS
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          API_HEALTHCHECK_URL: ${{ vars.API_HEALTHCHECK_URL }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          envs: API_HEALTHCHECK_URL
+          script: |
+            set -e
+            cd /opt/apps/event-ticketing
+            docker compose --env-file .env -f docker-compose.prod.yml pull
+            docker compose --env-file .env -f docker-compose.prod.yml run --rm api npx prisma migrate deploy
+            docker compose --env-file .env -f docker-compose.prod.yml up -d
+            docker image prune -f
+
+            curl -fsS http://127.0.0.1:4000/health
+            if [ -n "${API_HEALTHCHECK_URL:-}" ]; then
+              curl -fsS "${API_HEALTHCHECK_URL}"
+            fi
