@@ -29,8 +29,8 @@ jobs:
             ${{ secrets.DOCKERHUB_USERNAME }}/event-ticketing-client:${{ github.sha }}
           platforms: linux/amd64
           build-args: |
-            NEXT_PUBLIC_APP_NAME=${{ vars.NEXT_PUBLIC_APP_NAME || 'event ticketing platfrom' }}
-            NEXT_PUBLIC_APP_DESCRIPTION=${{ vars.NEXT_PUBLIC_APP_DESCRIPTION || 'event ticketing platfrom' }}
+            NEXT_PUBLIC_APP_NAME=${{ vars.NEXT_PUBLIC_APP_NAME || 'Multi-Tenant Event Intelligence Platform' }}
+            NEXT_PUBLIC_APP_DESCRIPTION=${{ vars.NEXT_PUBLIC_APP_DESCRIPTION || 'Multi-tenant event intelligence platform' }}
             NEXTAUTH_URL=${{ vars.NEXTAUTH_URL || 'http://localhost:3000' }}
             NEXT_PUBLIC_SITE_URL=${{ vars.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000' }}
             NEXT_PUBLIC_API_BASE_URL=${{ vars.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000' }}

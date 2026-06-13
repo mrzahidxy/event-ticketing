@@ -1,73 +1,74 @@
-# Codex Agent Prompt
+# API Agent Guide
 
-You are working in an Express + Prisma + PostgreSQL boilerplate.
+## Purpose
 
-Your job is to review the project for real issues, fix the ones you can safely address, and avoid over-engineering while doing it.
+This service is the Express + Prisma API for the Multi-Tenant Event Intelligence Platform. Keep work focused on organizer-scoped event management, public booking, Stripe payment confirmation, ticket generation, staff check-in, Redis locks, Kafka events, and analytics APIs.
 
-## Primary objective
+## Stack
 
-- Review the codebase for bugs, unsafe behavior, broken flows, weak validation, auth or RBAC mistakes, tenant-isolation risks, inconsistent API behavior, Prisma misuse, and obvious maintainability problems that are likely to cause defects.
-- Fix issues end-to-end when the right solution is clear and low risk.
-- Prefer several small, defensible fixes over one broad refactor.
+- Runtime: Node.js 20+
+- Framework: Express
+- Language: TypeScript
+- Database: PostgreSQL with Prisma
+- Auth: JWT access/refresh tokens with organizer roles
+- Validation: Zod
+- Cache/lock: Redis
+- Payment: Stripe Checkout and webhooks
+- Messaging: Kafka
 
-## Review priorities
+## Architecture Rules
 
-- Start with correctness, security, auth, authorization, tenant boundaries, data consistency, and broken runtime behavior.
-- Then check request validation, error handling, environment/config safety, and API contract mismatches.
-- Then check seeds, docs, and developer workflow only where they are clearly stale or broken.
-- Ignore purely stylistic cleanup unless it blocks correctness or creates recurring defects.
+- Preserve the existing `routes -> controllers -> services -> prisma` structure.
+- Routes handle HTTP details.
+- Controllers translate request/response concerns.
+- Services own business rules and transactions.
+- Prisma owns database access.
+- External systems should stay behind integration-style modules or focused utilities.
 
-## Project rules
+## Domain Rules
 
-- Preserve the existing `routes -> controllers -> services` structure.
-- Prefer incremental edits over refactors.
-- Default to the smallest viable patch.
-- Do not make massive, cross-cutting, or repo-wide changes unless the user explicitly requests them.
-- Do not override existing behavior, architecture, naming, or file layout at large scale unless the user explicitly approves that direction.
-- Do not introduce new abstractions, helper layers, patterns, or folders unless they are required to solve a concrete issue.
-- Do not redesign the domain model unless the task explicitly asks for it.
-- Keep dependencies unchanged unless one is strictly necessary for a fix.
-- Follow the current stack: TypeScript, Express, Prisma, PostgreSQL, Zod, JWT auth, RBAC.
-- Reuse existing utilities, middleware, and service patterns before adding new code.
-- Keep code readable and direct. Favor simple functions and explicit logic over indirection.
-- Treat this repository as a starter template with sample Organizer/Event/Booking modules. Improve only what is relevant.
+- Protect organizer and staff routes.
+- Scope organizer-owned data by `organizerId`.
+- Public guest routes must expose only published events.
+- Validate ticket tier quantity before creating Stripe Checkout sessions.
+- Treat Stripe webhooks as the payment source of truth.
+- Generate tickets only after confirmed payment.
+- Use unique opaque ticket tokens.
+- Use Redis duplicate scan locks before check-in status updates.
+- Publish `booking.created` and `checkin.created` events at real domain boundaries.
+- Keep payment webhook processing retry-safe.
+- Use a transaction for booking finalization.
 
-## Implementation bias
+## Current Modules
 
-- Choose pragmatic solutions over idealized architecture.
-- Optimize for correctness, clarity, low risk, and delivery speed.
-- Avoid speculative work.
-- Avoid premature optimization.
-- Avoid "future-proofing" unless the issue clearly requires extensibility.
-- Do not replace working code just to make it cleaner.
-- If a fix touches multiple files, keep the scope tight and justified.
+- `auth`
+- `organizer`
+- `booking`
+- `payment`
+- `ticket/check-in` when added or expanded
+- `analytics`
+- `admin`
+- `public`
 
-## Review and fix workflow
+Match the current file layout and naming before adding new folders.
 
-- Read the relevant files before editing and match the current style.
-- Confirm whether an issue is real before changing code.
-- Fix root causes when feasible, not just symptoms, but keep the solution proportionate.
-- If a possible fix would require broad edits across many files, stop and prefer a narrower fix or document the issue instead.
-- Keep API behavior stable unless the current behavior is clearly incorrect or unsafe.
-- Add or update validation, auth, and tenant checks only where relevant.
-- Update docs, examples, or seed data only when code changes make them inaccurate or expose existing breakage.
-- Run the narrowest useful verification available after each meaningful fix.
-- If a suspected issue is ambiguous or high-risk, document it rather than forcing a rewrite.
+## Change Rules
 
-## What not to do
+- Prefer small, defensible patches over broad rewrites.
+- Do not redesign the domain model unless explicitly requested.
+- Do not add dependencies unless they are required for a concrete task.
+- Do not run migrations from Dockerfiles or health checks.
+- Do not hardcode secrets or real Stripe keys.
+- Keep `/health` simple and dependency-light.
+- Update docs and env examples when API contracts or required env vars change.
 
-- Do not turn a review pass into a full architecture rewrite.
-- Do not perform massive rewrites, sweeping renames, bulk file moves, or broad behavior overrides.
-- Do not create generic frameworks for problems that appear only once.
-- Do not move files around unless necessary.
-- Do not introduce broad naming or structural churn.
-- Do not "clean up" unrelated code while fixing targeted issues.
-- Do not reinterpret a small bugfix request as permission to modernize or restructure the project.
+## Verification
 
-## Response style
+When dependencies are available, run the narrowest useful checks:
 
-- Be concise and direct.
-- Present findings first, ordered by severity.
-- For each fix, state what was wrong, what changed, and how it was verified.
-- If you found additional issues that were not fixed, list them separately with a short reason.
-- If a better long-term architecture exists, do not implement it unless requested. Mention it briefly only if it materially affects the current task.
+```bash
+npm run typecheck
+npm run build
+```
+
+For Prisma changes, also verify the relevant migration/generation command. If Docker Desktop or Prisma binaries are blocked by the local environment, report that separately from code correctness.

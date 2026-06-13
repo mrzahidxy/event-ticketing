@@ -1,17 +1,10 @@
-# Client
+# Multi-Tenant Event Intelligence Platform Client
 
-Next.js frontend for the multi-tenant event ticketing MVP.
-
-For product direction, see [../docs/project-context.md](../docs/project-context.md).
-
-It contains:
-
-- public event browsing
-- auth flows
-- admin and business-owner dashboard foundations
-- API integration with the backend on `http://localhost:4000`
+Next.js frontend for the Multi-Tenant Event Intelligence Platform.
 
 ## Setup
+
+Start the API first, then run:
 
 ```bash
 cp .env.example .env
@@ -19,24 +12,37 @@ npm install
 npm run dev
 ```
 
-Runs on `http://localhost:3000`.
+PowerShell copy command:
 
-## Main env
+```powershell
+Copy-Item .env.example .env
+```
 
-- `NEXTAUTH_URL`: auth callback base URL for the frontend
-- `NEXT_PUBLIC_SITE_URL`: public site URL used by the client
-- `NEXT_PUBLIC_API_BASE_URL`: backend API base URL
-- `NEXTAUTH_SECRET`: NextAuth secret for local auth/session handling
+Default local URLs:
 
-## Local development
+- Client: `http://localhost:3000`
+- API base URL: `http://localhost:4000`
 
-- Start the API first if you want login, dashboard data, or booking flows to work.
-- Default frontend URL: `http://localhost:3000`
-- Default backend URL: `http://localhost:4000`
+## Environment
 
-## Main scripts
+`client/.env.example` documents the variables read by the current client:
 
-- `npm run dev`: start the Next.js dev server
-- `npm run build`: create a production build
-- `npm run lint`: run ESLint
-- `npm run typecheck`: run the TypeScript project check
+- `NODE_ENV`
+- `NEXT_PUBLIC_APP_NAME`
+- `NEXT_PUBLIC_APP_DESCRIPTION`
+- `NEXTAUTH_URL`
+- `NEXT_PUBLIC_SITE_URL`
+- `NEXT_PUBLIC_API_BASE_URL`
+- `API_INTERNAL_BASE_URL`
+- `NEXTAUTH_SECRET`
+- `AUTH_SECRET`
+
+Real `.env` files are ignored by Git and must not be committed.
+
+## Scripts
+
+- `npm run dev` - start Next.js in development
+- `npm run build` - build production assets
+- `npm run start` - serve the production build
+- `npm run lint` - run ESLint
+- `npm run typecheck` - run TypeScript checks

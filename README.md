@@ -1,11 +1,10 @@
-# Event Ticketing MVP
+# Multi-Tenant Event Intelligence Platform
 
-Multi-tenant event ticketing workspace with:
+Multi-tenant event intelligence platform with an Express + Prisma API, a Next.js client, PostgreSQL, Redis-backed cache/revocation support, and Stripe checkout/webhook flows.
 
-- `api/` for the Express + Prisma backend
-- `client/` for the Next.js frontend
+For feature implementation guidance, see [docs/feature-implementation-guide.md](docs/feature-implementation-guide.md). For current project boundaries, see [docs/project-context.md](docs/project-context.md).
 
-## Start here
+## Local Setup
 
 - Product direction: [docs/project-context.md](./docs/project-context.md)
 - VPS deployment: [docs/deployment.md](./docs/deployment.md)
