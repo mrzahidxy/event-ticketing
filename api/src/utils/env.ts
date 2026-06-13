@@ -42,11 +42,14 @@ const baseEnvSchema = z.object({
   COOKIE_SAME_SITE: z.enum(['lax', 'strict', 'none']).default('lax'),
   JWT_ISSUER: z.string().default('event-ticketing'),
   JWT_AUDIENCE: z.string().optional(),
-  CORS_ORIGIN: z
-    .string()
-    .default(
-      'http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173',
-    ),
+  CORS_ORIGIN:
+    process.env.NODE_ENV === 'production'
+      ? z.string().min(1, 'CORS_ORIGIN is required in production')
+      : z
+          .string()
+          .default(
+            'http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173',
+          ),
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
   STRIPE_CURRENCY: z.string().default('usd'),

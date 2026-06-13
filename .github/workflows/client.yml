@@ -31,9 +31,9 @@ jobs:
           build-args: |
             NEXT_PUBLIC_APP_NAME=${{ vars.NEXT_PUBLIC_APP_NAME || 'Multi-Tenant Event Intelligence Platform' }}
             NEXT_PUBLIC_APP_DESCRIPTION=${{ vars.NEXT_PUBLIC_APP_DESCRIPTION || 'Multi-tenant event intelligence platform' }}
-            NEXTAUTH_URL=${{ vars.NEXTAUTH_URL || 'http://localhost:3000' }}
-            NEXT_PUBLIC_SITE_URL=${{ vars.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000' }}
-            NEXT_PUBLIC_API_BASE_URL=${{ vars.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000' }}
-            API_INTERNAL_BASE_URL=${{ vars.API_INTERNAL_BASE_URL || 'http://api:4000' }}
+            NEXTAUTH_URL=${{ vars.NEXTAUTH_URL }}
+            NEXT_PUBLIC_SITE_URL=${{ vars.NEXT_PUBLIC_SITE_URL }}
+            NEXT_PUBLIC_API_BASE_URL=${{ vars.NEXT_PUBLIC_API_BASE_URL }}
+            API_INTERNAL_BASE_URL=${{ vars.API_INTERNAL_BASE_URL }}
             NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}
             AUTH_SECRET=${{ secrets.AUTH_SECRET || secrets.NEXTAUTH_SECRET }}
