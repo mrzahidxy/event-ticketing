@@ -22,12 +22,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
           for workflow in "Build and Push API Image" "Build and Push Client Image"; do
             echo "Waiting for ${workflow} on ${HEAD_SHA}"
             for attempt in {1..30}; do
-              conclusion="$(gh run list --workflow "${workflow}" --commit "${HEAD_SHA}" --status completed --limit 1 --json conclusion --jq '.[0].conclusion // empty')"
+              conclusion="$(gh run list --repo "${REPOSITORY}" --workflow "${workflow}" --commit "${HEAD_SHA}" --status completed --limit 1 --json conclusion --jq '.[0].conclusion // empty')"
               if [ "${conclusion}" = "success" ]; then
                 echo "${workflow} succeeded"
                 break
