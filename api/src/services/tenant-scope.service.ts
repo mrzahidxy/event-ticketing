@@ -28,10 +28,6 @@ export const resolveOwnedOrganizerId = async (
   deps: TenantScopeDependencies,
   actor: AuthenticatedUser
 ): Promise<string | null> => {
-  if (actor.organizerId) {
-    return actor.organizerId;
-  }
-
   const ownedOrganizer = await deps.prisma.organizer.findUnique({
     where: { ownerId: actor.id },
     select: { id: true },
