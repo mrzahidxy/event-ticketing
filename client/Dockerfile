@@ -28,6 +28,7 @@ ENV AUTH_SECRET=$AUTH_SECRET
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+RUN node -e "for (const name of ['NEXTAUTH_URL','NEXT_PUBLIC_SITE_URL','NEXT_PUBLIC_API_BASE_URL','API_INTERNAL_BASE_URL']) { const value = process.env[name]; if (!value) throw new Error(name + ' is required'); try { new URL(value); } catch { throw new Error(name + ' must be a valid URL'); } }"
 RUN npm run build
 RUN npm prune --omit=dev
 
