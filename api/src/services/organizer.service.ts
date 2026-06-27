@@ -235,7 +235,7 @@ export const organizerService = {
     actor: AuthenticatedUser
   ): Promise<OrganizerDetail> => {
     const scope = await getOrganizerScope(organizerId, actor);
-    assertStaffOrOwnerOrAdmin(scope, 'update the organizer profile');
+    assertOwnerOrAdmin(scope, 'update the organizer profile');
     assertOrganizerActive(scope, 'update organizer profile');
 
     return prisma.organizer.update({
