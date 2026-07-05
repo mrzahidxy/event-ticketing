@@ -388,6 +388,7 @@ export function normalizeTicketTier(payload: unknown): TicketTier {
   const record = toObject(payload)
 
   return {
+    createdAt: toStringValue(record?.createdAt),
     currency: toStringValue(record?.currency, 'usd').toLowerCase(),
     description: toNullableString(record?.description),
     eventId: toStringValue(record?.eventId),
@@ -401,6 +402,7 @@ export function normalizeTicketTier(payload: unknown): TicketTier {
       : toNumberValue(record?.quantityTotal),
     salesEndAt: toNullableString(record?.salesEndAt),
     salesStartAt: toNullableString(record?.salesStartAt),
+    updatedAt: toStringValue(record?.updatedAt),
   }
 }
 

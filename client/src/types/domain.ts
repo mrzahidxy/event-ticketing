@@ -22,6 +22,8 @@ export type TicketTier = {
   salesStartAt: string | null
   salesEndAt: string | null
   isActive: boolean
+  createdAt: string
+  updatedAt: string
 }
 
 export type Event = {
@@ -30,7 +32,7 @@ export type Event = {
   name: string
   description: string
   price: number
-  ticketTiers: TicketTier[]
+  ticketTiers?: TicketTier[]
   eventDate?: string
   eventTime?: string
   location?: string

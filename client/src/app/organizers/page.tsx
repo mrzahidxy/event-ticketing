@@ -68,7 +68,8 @@ export default async function PublicOrganizersIndexPage() {
           ) : (
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {eventCards.map(({ organizer, event }) => {
-                const firstTier = event.ticketTiers[0]
+                const ticketTiers = event.ticketTiers ?? []
+                const firstTier = ticketTiers[0]
                 const available = firstTier?.quantityTotal === null
                   ? 'Unlimited'
                   : firstTier
@@ -108,7 +109,7 @@ export default async function PublicOrganizersIndexPage() {
                         </div>
                         <div className="flex items-center gap-2">
                           <Ticket className="h-4 w-4" />
-                          <span>{event.ticketTiers.length} bookable tier(s), {available}</span>
+                          <span>{ticketTiers.length} bookable tier(s), {available}</span>
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-2">

@@ -202,6 +202,32 @@ export default async function OrganizerPage({ params, searchParams }: OrganizerP
                       <p className="text-sm leading-6 text-slate-600">
                         {event.description || '—'}
                       </p>
+                      {event.ticketTiers?.length ? (
+                        <div className="space-y-2 rounded-xl bg-slate-50 p-3">
+                          <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                            Available tiers
+                          </p>
+                          <div className="space-y-2">
+                            {event.ticketTiers.map((tier) => {
+                              const availability = tier.quantityTotal === null
+                                ? 'Unlimited'
+                                : `${Math.max(tier.quantityTotal - tier.quantitySold, 0)} left`
+
+                              return (
+                                <div
+                                  key={tier.id}
+                                  className="flex items-center justify-between gap-3 text-xs text-slate-600"
+                                >
+                                  <span className="font-medium text-slate-700">{tier.name}</span>
+                                  <span>
+                                    {formatCurrency(tier.price, tier.currency.toUpperCase())} · {availability}
+                                  </span>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      ) : null}
                     </CardHeader>
                     <CardContent className="space-y-4 border-t border-slate-100 px-6 py-4">
                       <div className="text-xs text-slate-500">

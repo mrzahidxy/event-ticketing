@@ -61,7 +61,7 @@ export function PublicOrganizerBookingForm({
       guestCount: 1,
       notes: '',
       quantity: 1,
-      ticketTierId: events.find((event) => event.id === (initialEventId ?? events[0]?.id))?.ticketTiers[0]?.id ?? 0,
+      ticketTierId: events.find((event) => event.id === (initialEventId ?? events[0]?.id))?.ticketTiers?.[0]?.id ?? 0,
       phone: '',
     },
   })
@@ -69,9 +69,10 @@ export function PublicOrganizerBookingForm({
   const selectedEventId = form.watch('eventId')
   const selectedTicketTierId = form.watch('ticketTierId')
   const selectedEvent = events.find((event) => event.id === selectedEventId) ?? null
+  const selectedEventTiers = selectedEvent?.ticketTiers ?? []
   const selectedTier =
-    selectedEvent?.ticketTiers.find((tier) => tier.id === Number(selectedTicketTierId)) ??
-    selectedEvent?.ticketTiers[0] ??
+    selectedEventTiers.find((tier) => tier.id === Number(selectedTicketTierId)) ??
+    selectedEventTiers[0] ??
     null
   const selectedTierAvailable = selectedTier?.quantityTotal === null
     ? null
@@ -85,7 +86,7 @@ export function PublicOrganizerBookingForm({
 
     if (event?.id) {
       form.setValue('eventId', event.id, { shouldDirty: false, shouldValidate: true })
-      form.setValue('ticketTierId', event.ticketTiers[0]?.id ?? 0, {
+      form.setValue('ticketTierId', event.ticketTiers?.[0]?.id ?? 0, {
         shouldDirty: false,
         shouldValidate: true,
       })
@@ -97,12 +98,13 @@ export function PublicOrganizerBookingForm({
       return
     }
 
-    const tierBelongsToEvent = selectedEvent.ticketTiers.some(
+    const ticketTiers = selectedEvent.ticketTiers ?? []
+    const tierBelongsToEvent = ticketTiers.some(
       (tier) => tier.id === Number(form.getValues('ticketTierId')),
     )
 
     if (!tierBelongsToEvent) {
-      form.setValue('ticketTierId', selectedEvent.ticketTiers[0]?.id ?? 0, {
+      form.setValue('ticketTierId', ticketTiers[0]?.id ?? 0, {
         shouldDirty: true,
         shouldValidate: true,
       })
@@ -140,7 +142,7 @@ export function PublicOrganizerBookingForm({
         notes: '',
         phone: '',
         quantity: 1,
-        ticketTierId: events.find((event) => event.id === (initialEventId ?? events[0]?.id))?.ticketTiers[0]?.id ?? 0,
+        ticketTierId: events.find((event) => event.id === (initialEventId ?? events[0]?.id))?.ticketTiers?.[0]?.id ?? 0,
       })
     },
     onError: (error) => {
@@ -274,18 +276,18 @@ export function PublicOrganizerBookingForm({
               htmlFor="public-booking-ticket-tier"
               required
               description={
-                selectedEvent?.ticketTiers.length
+                selectedEventTiers.length
                   ? 'Choose an available ticket tier for this event.'
                   : 'No ticket tiers are currently available for this event.'
               }
             >
               <Select
                 id="public-booking-ticket-tier"
-                disabled={!selectedEvent?.ticketTiers.length || mutation.isPending}
+                disabled={!selectedEventTiers.length || mutation.isPending}
                 {...form.register('ticketTierId', { valueAsNumber: true })}
               >
                 <option value={0}>Select a ticket tier</option>
-                {selectedEvent?.ticketTiers.map((tier) => {
+                {selectedEventTiers.map((tier) => {
                   const available = tier.quantityTotal === null
                     ? 'Unlimited'
                     : Math.max(tier.quantityTotal - tier.quantitySold, 0)
