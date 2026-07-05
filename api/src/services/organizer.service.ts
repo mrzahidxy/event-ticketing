@@ -39,7 +39,6 @@ const PUBLIC_EVENT_SELECT = {
 const PUBLIC_ORGANIZER_SELECT = {
   id: true,
   name: true,
-  ownerId: true,
   isSuspended: true,
   createdAt: true,
   updatedAt: true,
@@ -74,7 +73,6 @@ type PublicOrganizerLanding = {
   organizer: {
     id: string;
     name: string;
-    ownerId: number;
     status: 'ACTIVE' | 'SUSPENDED';
     createdAt: Date;
     updatedAt: Date;
@@ -237,7 +235,7 @@ export const organizerService = {
     actor: AuthenticatedUser
   ): Promise<OrganizerDetail> => {
     const scope = await getOrganizerScope(organizerId, actor);
-    assertStaffOrOwnerOrAdmin(scope, 'update the organizer profile');
+    assertOwnerOrAdmin(scope, 'update the organizer profile');
     assertOrganizerActive(scope, 'update organizer profile');
 
     return prisma.organizer.update({
@@ -360,13 +358,16 @@ export const organizerService = {
     assertOwnerOrAdmin(scope, 'update events');
     assertOrganizerActive(scope, 'update events');
 
-    const event = await prisma.event.findUnique({
-      where: { id: eventId },
-      select: { id: true, organizerId: true, name: true },
+    const event = await prisma.event.findFirst({
+      where: {
+        id: eventId,
+        organizerId: scope.organizer.id,
+      },
+      select: { id: true, name: true },
     });
 
-    if (!event || event.organizerId !== scope.organizer.id) {
-      throw new HttpError(404, 'Event not found');
+    if (!event) {
+      throw new HttpError(403, 'Forbidden: event is outside this organizer');
     }
 
     if (input.name && input.name !== event.name) {
@@ -389,7 +390,10 @@ export const organizerService = {
       }
 
       const updatedEvent = await tx.event.update({
-        where: { id: event.id },
+        where: {
+          id: event.id,
+          organizerId: scope.organizer.id,
+        },
         data: updates,
         select: EVENT_SELECT,
       });
@@ -426,17 +430,23 @@ export const organizerService = {
     assertOwnerOrAdmin(scope, 'delete events');
     assertOrganizerActive(scope, 'delete events');
 
-    const event = await prisma.event.findUnique({
-      where: { id: eventId },
-      select: { id: true, organizerId: true },
+    const event = await prisma.event.findFirst({
+      where: {
+        id: eventId,
+        organizerId: scope.organizer.id,
+      },
+      select: { id: true },
     });
 
-    if (!event || event.organizerId !== scope.organizer.id) {
-      throw new HttpError(404, 'Event not found');
+    if (!event) {
+      throw new HttpError(403, 'Forbidden: event is outside this organizer');
     }
 
     await prisma.event.delete({
-      where: { id: event.id },
+      where: {
+        id: event.id,
+        organizerId: scope.organizer.id,
+      },
     });
   },
 

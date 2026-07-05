@@ -64,14 +64,14 @@ export const PERMISSIONS: Record<
 export const ROLE_PRESETS: Record<Role, PermissionKey[]> = {
   [Role.ADMIN]: [...PERMISSION_KEYS],
   [Role.OWNER]: [...PERMISSION_KEYS],
-  [Role.STAFF]: ['ORGANIZER_READ_OWN', 'EVENT_READ', 'ORGANIZER_UPDATE_OWN'],
+  [Role.STAFF]: ['ORGANIZER_READ_OWN', 'EVENT_READ'],
   [Role.USER]: ['EVENT_READ'],
 };
 
 export const ROLE_METADATA: Record<AppRole, { label: string; description: string }> = {
   [Role.ADMIN]: { label: 'Admin', description: 'Platform-wide control' },
   [Role.OWNER]: { label: 'Owner', description: 'Full control of an organizer' },
-  [Role.STAFF]: { label: 'Staff', description: 'Limited access to organizer profile' },
+  [Role.STAFF]: { label: 'Staff', description: 'Limited operational access to assigned organizers' },
   [Role.USER]: { label: 'User', description: 'Standard authenticated user' },
   [GUEST_ROLE]: { label: 'Guest', description: 'Unauthenticated public access' },
 };

@@ -26,6 +26,20 @@ Guests are public users by default and do not need accounts unless a task explic
 
 Protect organizer and staff routes. Scope organizer-owned data by `organizerId`. Public guest routes must show only published events.
 
+## Tenant Isolation Rules
+
+Authentication is not tenant isolation. `req.auth.organizerId` is request context only and must not be the only control used to protect organizer-owned data.
+
+* Organizer-owned reads must verify platform admin, organizer owner, or explicit organizer staff membership scope before returning data.
+* Organizer writes are owner/admin only, including organizer profile updates, event create/update/delete, ticket tier management, and staff assignment changes.
+* Staff access is limited to allowed operational actions for assigned organizers. Staff must not create, update, or delete events, ticket tiers, organizer profiles, or staff assignments.
+* Protected organizer, analytics, booking, ticket, check-in, and payment routes must reject guests/public users.
+* Public routes may expose only published public data and must hide suspended organizers and unpublished events.
+* Cross-organizer access attempts must return clear `403 Forbidden` or `404 Not Found` errors.
+* Event and ticket-tier lookups must be scoped through the parent organizer, for example by querying with both `eventId` and `organizerId`.
+* Booking, payment, check-in, and analytics lookups must scope through `organizerId` or parent event/booking ownership.
+* Analytics must resolve tenant scope before aggregate queries so Organizer A users cannot infer Organizer B data.
+
 ## Included Scope
 
 * Organizer login with `OWNER` and `STAFF` roles.
@@ -128,7 +142,7 @@ Do not rename models casually just to match this document.
 * Services handle business logic.
 * Prisma handles database access.
 * External services stay inside integration modules.
-* All organizer-owned queries must include `organizerId`.
+* All organizer-owned queries must include `organizerId` and verify owner/member/admin scope in service logic.
 * Public guest queries must only return published events.
 * Payment webhook processing must be retry-safe.
 * Booking finalization must use a database transaction.

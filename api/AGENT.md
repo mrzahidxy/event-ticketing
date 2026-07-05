@@ -39,6 +39,13 @@ This service is the Express + Prisma API for the Multi-Tenant Event Intelligence
 - Keep payment webhook processing retry-safe.
 - Use a transaction for booking finalization.
 
+## Tenant Isolation
+
+- Filter every organizer-owned Prisma read and write by `organizerId`.
+- Authorize owner/staff access through organizer ownership or `OrganizerMembership`; global `User.role` alone does not grant tenant access.
+- Reject cross-organizer reads and writes with a clear authorization error.
+- Public routes must return only fields and published resources intended for unauthenticated users.
+
 ## Current Modules
 
 - `auth`
