@@ -97,11 +97,6 @@ type PublicBookingSubmission = {
   updatedAt: Date;
 };
 
-type EventPriceInfo = {
-  amount: Prisma.Decimal;
-  currency: string;
-};
-
 type ListBookingsFilters = Partial<ListBookingsQuery> & {
   search?: string;
 };
@@ -222,16 +217,6 @@ const normalizeListFilters = (filters?: ListBookingsFilters): ListBookingsFilter
   return {
     ...(normalized ?? {}),
     ...(search ? { search } : {}),
-  };
-};
-
-const resolveEventPricing = (event: {
-  ticketTiers: Array<{ price: Prisma.Decimal; currency: string }>;
-}): EventPriceInfo => {
-  const primaryTier = event.ticketTiers[0];
-  return {
-    amount: primaryTier?.price ?? new Prisma.Decimal(0),
-    currency: primaryTier?.currency ?? 'usd',
   };
 };
 
