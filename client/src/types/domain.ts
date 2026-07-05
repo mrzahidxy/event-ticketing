@@ -10,12 +10,27 @@ export type Organizer = {
   updatedAt: string
 }
 
+export type TicketTier = {
+  id: number
+  eventId: string
+  name: string
+  description: string | null
+  price: number
+  currency: string
+  quantityTotal: number | null
+  quantitySold: number
+  salesStartAt: string | null
+  salesEndAt: string | null
+  isActive: boolean
+}
+
 export type Event = {
   id: string
   organizerId: string
   name: string
   description: string
   price: number
+  ticketTiers: TicketTier[]
   eventDate?: string
   eventTime?: string
   location?: string

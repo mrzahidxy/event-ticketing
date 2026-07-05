@@ -7,6 +7,8 @@ import type {
   UpdateOrganizerInput,
   CreateEventInput,
   UpdateEventInput,
+  CreateTicketTierInput,
+  UpdateTicketTierInput,
   AssignStaffInput,
   StaffCandidateQueryInput,
 } from '../schemas/organizer.schema';
@@ -87,6 +89,36 @@ export const organizerController = {
     const { organizerId, eventId } = req.params as { organizerId: string; eventId: string };
     await organizerService.removeEvent(organizerId, eventId, req.user!);
     res.status(204).send();
+  },
+
+  listTicketTiers: async (req: AuthenticatedRequest, res: Response) => {
+    const { organizerId, eventId } = req.params as { organizerId: string; eventId: string };
+    const tiers = await organizerService.listTicketTiers(organizerId, eventId, req.user!);
+    res.status(200).json(successResponse(tiers));
+  },
+
+  createTicketTier: async (req: AuthenticatedRequest, res: Response) => {
+    const { organizerId, eventId } = req.params as { organizerId: string; eventId: string };
+    const payload = req.body as CreateTicketTierInput;
+    const tier = await organizerService.createTicketTier(organizerId, eventId, payload, req.user!);
+    res.status(201).json(successResponse(tier, { message: 'Ticket tier created successfully' }));
+  },
+
+  updateTicketTier: async (req: AuthenticatedRequest, res: Response) => {
+    const { organizerId, eventId, ticketTierId } = req.params as {
+      organizerId: string;
+      eventId: string;
+      ticketTierId: string;
+    };
+    const payload = req.body as UpdateTicketTierInput;
+    const tier = await organizerService.updateTicketTier(
+      organizerId,
+      eventId,
+      Number(ticketTierId),
+      payload,
+      req.user!
+    );
+    res.status(200).json(successResponse(tier, { message: 'Ticket tier updated successfully' }));
   },
 
   listStaff: async (req: AuthenticatedRequest, res: Response) => {
