@@ -38,9 +38,11 @@ export type BookingInput = {
 
 export type PublicOrganizerBookingInput = {
   eventId: string
+  ticketTierId: number
   bookingDate: string
   bookingTime: string
-  guestCount: number
+  quantity: number
+  guestCount?: number
   fullName?: string
   email?: string
   phone?: string

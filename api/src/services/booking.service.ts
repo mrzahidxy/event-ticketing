@@ -81,12 +81,17 @@ type PublicBookingSubmission = {
   phone: string | null;
   eventId: string | null;
   eventName: string | null;
+  ticketTierId: number;
+  tierName: string;
   userId: number | null;
   bookingDate: Date | null;
   bookingTime: string | null;
+  quantity: number;
   guestCount: number | null;
   notes: string | null;
+  totalAmount: Prisma.Decimal;
   totalPrice: Prisma.Decimal;
+  currency: string;
   status: BookingStatus;
   createdAt: Date;
   updatedAt: Date;
@@ -230,6 +235,149 @@ const resolveEventPricing = (event: {
   };
 };
 
+const assertTierBookable = (tier: {
+  isActive: boolean;
+  salesStartAt: Date | null;
+  salesEndAt: Date | null;
+  quantityTotal: number | null;
+  quantitySold: number;
+}, quantity: number) => {
+  if (!tier.isActive) {
+    throw new HttpError(400, 'Selected ticket tier is not active');
+  }
+
+  const now = new Date();
+  if (tier.salesStartAt && tier.salesStartAt > now) {
+    throw new HttpError(400, 'Ticket tier sales have not started');
+  }
+
+  if (tier.salesEndAt && tier.salesEndAt < now) {
+    throw new HttpError(400, 'Ticket tier sales have ended');
+  }
+
+  if (tier.quantityTotal !== null) {
+    const available = tier.quantityTotal - tier.quantitySold;
+    if (quantity > available) {
+      throw new HttpError(400, 'Insufficient ticket inventory for this tier');
+    }
+  }
+};
+
+const createBookingWithTier = async (input: {
+  eventId: string;
+  ticketTierId: number;
+  quantity: number;
+  userId: number | null;
+  fullName: string;
+  email: string;
+  phone?: string | null;
+  notes?: string | null;
+  requirePublished: boolean;
+}) => {
+  const event = await prisma.event.findUnique({
+    where: { id: input.eventId },
+    select: {
+      id: true,
+      name: true,
+      organizerId: true,
+      isPublished: true,
+      organizer: {
+        select: {
+          isSuspended: true,
+        },
+      },
+    },
+  });
+
+  if (!event) {
+    throw new HttpError(404, 'Event not found');
+  }
+
+  if (input.requirePublished && !event.isPublished) {
+    throw new HttpError(403, 'This event is not available for booking');
+  }
+
+  if (event.organizer.isSuspended) {
+    throw new HttpError(403, 'This organizer is currently suspended');
+  }
+
+  const tier = await prisma.ticketTier.findUnique({
+    where: { id: input.ticketTierId },
+    select: {
+      id: true,
+      eventId: true,
+      name: true,
+      price: true,
+      currency: true,
+      quantityTotal: true,
+      quantitySold: true,
+      salesStartAt: true,
+      salesEndAt: true,
+      isActive: true,
+    },
+  });
+
+  if (!tier) {
+    throw new HttpError(404, 'Ticket tier not found');
+  }
+
+  if (tier.eventId !== event.id) {
+    throw new HttpError(400, 'Selected ticket tier does not belong to this event');
+  }
+
+  assertTierBookable(tier, input.quantity);
+
+  const lineTotal = tier.price.mul(input.quantity);
+
+  const booking = await prisma.$transaction(async (tx) => {
+    const updated = await tx.$executeRaw`
+      UPDATE "TicketTier"
+      SET "quantitySold" = "quantitySold" + ${input.quantity}, "updatedAt" = NOW()
+      WHERE "id" = ${tier.id}
+        AND "eventId" = ${event.id}::uuid
+        AND "isActive" = true
+        AND ("salesStartAt" IS NULL OR "salesStartAt" <= NOW())
+        AND ("salesEndAt" IS NULL OR "salesEndAt" >= NOW())
+        AND ("quantityTotal" IS NULL OR "quantitySold" + ${input.quantity} <= "quantityTotal")
+    `;
+
+    if (updated === 0) {
+      throw new HttpError(400, 'Selected ticket tier is sold out or has insufficient inventory');
+    }
+
+    const created = await tx.booking.create({
+      data: {
+        userId: input.userId,
+        eventId: event.id,
+        organizerId: event.organizerId,
+        fullName: input.fullName,
+        email: input.email,
+        phone: input.phone ?? null,
+        notes: input.notes ?? null,
+        subtotalAmount: lineTotal,
+        totalAmount: lineTotal,
+        currency: tier.currency,
+        status: BookingStatus.PENDING,
+      },
+    });
+
+    await tx.bookingItem.create({
+      data: {
+        bookingId: created.id,
+        ticketTierId: tier.id,
+        tierNameSnapshot: tier.name,
+        unitPriceSnapshot: tier.price,
+        quantity: input.quantity,
+        lineTotal,
+      },
+    });
+
+    return created;
+  });
+
+  return { booking, event, tier, quantity: input.quantity, lineTotal };
+};
+
 type UserBookingHistoryItem = {
   id: number;
   eventId: string | null;
@@ -344,44 +492,17 @@ export const bookingService = {
       throw new HttpError(400, 'Booking date must be a valid date');
     }
 
-    const event = await prisma.event.findUnique({
+    const eventScope = await prisma.event.findUnique({
       where: { id: input.eventId },
-      select: {
-        id: true,
-        name: true,
-        organizerId: true,
-        isPublished: true,
-        organizer: {
-          select: {
-            isSuspended: true,
-          },
-        },
-        ticketTiers: {
-          where: { isActive: true },
-          orderBy: { price: 'asc' },
-          take: 1,
-          select: {
-            price: true,
-            currency: true,
-          },
-        },
-      },
+      select: { organizerId: true },
     });
 
-    if (!event) {
+    if (!eventScope) {
       throw new HttpError(404, 'Event not found');
     }
 
-    if (organizerId && event.organizerId !== organizerId) {
+    if (organizerId && eventScope.organizerId !== organizerId) {
       throw new HttpError(404, 'Event not found for this organizer');
-    }
-
-    if (!event.isPublished) {
-      throw new HttpError(400, 'This event is not available for public booking');
-    }
-
-    if (event.organizer.isSuspended) {
-      throw new HttpError(403, 'This organizer is currently suspended');
     }
 
     const hasGuestDetails =
@@ -401,35 +522,16 @@ export const bookingService = {
       throw new HttpError(400, 'A full name and email address are required');
     }
 
-    const pricing = resolveEventPricing(event);
-
-    const booking = await prisma.booking.create({
-      data: {
-        email,
-        eventId: event.id,
-        fullName,
-        organizerId: event.organizerId,
-        notes: input.notes ?? null,
-        phone,
-        subtotalAmount: pricing.amount,
-        totalAmount: pricing.amount,
-        currency: pricing.currency,
-        status: BookingStatus.PENDING,
-        userId: actor?.id ?? null,
-      },
-      select: {
-        id: true,
-        fullName: true,
-        email: true,
-        phone: true,
-        eventId: true,
-        userId: true,
-        notes: true,
-        totalAmount: true,
-        status: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+    const { booking, event, tier, quantity, lineTotal } = await createBookingWithTier({
+      eventId: input.eventId,
+      ticketTierId: input.ticketTierId,
+      quantity: input.quantity,
+      userId: actor?.id ?? null,
+      fullName,
+      email,
+      phone,
+      notes: input.notes ?? null,
+      requirePublished: true,
     });
 
     return {
@@ -439,12 +541,17 @@ export const bookingService = {
       phone: booking.phone ?? phone ?? '',
       eventId: booking.eventId,
       eventName: event.name,
+      ticketTierId: tier.id,
+      tierName: tier.name,
       userId: booking.userId,
       bookingDate,
       bookingTime: input.bookingTime,
-      guestCount: input.guestCount,
+      quantity,
+      guestCount: input.guestCount ?? quantity,
       notes: booking.notes ?? null,
-      totalPrice: booking.totalAmount,
+      totalAmount: lineTotal,
+      totalPrice: lineTotal,
+      currency: tier.currency,
       status: booking.status,
       createdAt: booking.createdAt,
       updatedAt: booking.updatedAt,
@@ -690,32 +797,13 @@ export const bookingService = {
       where: { id: input.eventId },
       select: {
         id: true,
-        name: true,
         organizerId: true,
         isPublished: true,
-        organizer: {
-          select: {
-            isSuspended: true,
-          },
-        },
-        ticketTiers: {
-          where: { isActive: true },
-          orderBy: { price: 'asc' },
-          take: 1,
-          select: {
-            price: true,
-            currency: true,
-          },
-        },
       },
     });
 
     if (!event) {
       throw new HttpError(404, 'Event not found');
-    }
-
-    if (event.organizer.isSuspended) {
-      throw new HttpError(403, 'This organizer is currently suspended');
     }
 
     if (user.role === Role.OWNER || user.role === Role.STAFF) {
@@ -735,22 +823,16 @@ export const bookingService = {
       throw new HttpError(403, 'You are not allowed to book an unpublished event');
     }
 
-    const pricing = resolveEventPricing(event);
-
-    const booking = await prisma.booking.create({
-      data: {
-        userId: user.id,
-        eventId: event.id,
-        organizerId: event.organizerId,
-        fullName: user.name?.trim() || user.email,
-        email: user.email,
-        phone: null,
-        notes: `Requested schedule ${input.checkIn} to ${input.checkOut}`,
-        subtotalAmount: pricing.amount,
-        totalAmount: pricing.amount,
-        currency: pricing.currency,
-        status: BookingStatus.PENDING,
-      },
+    const { booking } = await createBookingWithTier({
+      eventId: input.eventId,
+      ticketTierId: input.ticketTierId,
+      quantity: input.quantity,
+      userId: user.id,
+      fullName: user.name?.trim() || user.email,
+      email: user.email,
+      phone: null,
+      notes: `Requested schedule ${input.checkIn} to ${input.checkOut}`,
+      requirePublished: user.role === Role.USER,
     });
 
     if (cache.isConnectedToRedis()) {

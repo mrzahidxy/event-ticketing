@@ -126,6 +126,10 @@ export const bookingUpdateFormSchema = bookingFormSchema
 
 const publicOrganizerBookingBaseSchema = z.object({
   eventId: z.string().uuid('Event ID must be a valid UUID'),
+  ticketTierId: z.coerce
+    .number({ invalid_type_error: 'Ticket tier is required' })
+    .int('Ticket tier ID must be a whole number')
+    .positive('Please select a ticket tier'),
   bookingDate: z
     .string()
     .transform((val, ctx) => normalizeDate(val, ctx, 'bookingDate')),
@@ -133,13 +137,17 @@ const publicOrganizerBookingBaseSchema = z.object({
     .string()
     .trim()
     .regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Booking time must be in HH:MM 24-hour format'),
-  guestCount: z.coerce
+  quantity: z.coerce
     .number({
-      invalid_type_error: 'Guest count is required',
+      invalid_type_error: 'Quantity is required',
     })
+    .int('Quantity must be a whole number')
+    .min(1, 'Quantity must be at least 1'),
+  guestCount: z.coerce
+    .number()
     .int('Guest count must be a whole number')
     .min(1, 'Guest count must be at least 1')
-    .max(20, 'Please contact support for parties larger than 20'),
+    .optional(),
   fullName: z
     .string()
     .trim()

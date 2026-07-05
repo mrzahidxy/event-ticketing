@@ -4,6 +4,8 @@ import { z } from 'zod';
 export const createBookingSchema = z
   .object({
     eventId: z.string().uuid('Event ID must be a valid UUID'),
+    ticketTierId: z.coerce.number().int().positive('Ticket tier ID must be a positive integer'),
+    quantity: z.coerce.number().int().positive('Quantity must be at least 1'),
     checkIn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Check-in must be in YYYY-MM-DD format'),
     checkOut: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Check-out must be in YYYY-MM-DD format'),
   })
@@ -21,6 +23,7 @@ export const createBookingSchema = z
 
 export const createPublicBookingSchema = z.object({
   eventId: z.string().uuid('Event ID must be a valid UUID'),
+  ticketTierId: z.coerce.number().int().positive('Ticket tier ID must be a positive integer'),
   fullName: z.preprocess(
     (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
     z.string().trim().min(1, 'Full name is required').max(100, 'Full name is too long').optional()
@@ -49,12 +52,17 @@ export const createPublicBookingSchema = z.object({
   bookingTime: z
     .string()
     .regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Booking time must be in HH:MM 24-hour format'),
-  guestCount: z.coerce.number().int().positive('Number of guests must be at least 1').max(20, 'Guest count must be 20 or fewer'),
+  quantity: z.coerce.number().int().positive('Quantity must be at least 1').optional(),
+  guestCount: z.coerce.number().int().positive('Number of guests must be at least 1').max(20, 'Guest count must be 20 or fewer').optional(),
   notes: z.preprocess(
     (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
     z.string().trim().max(1000, 'Notes must be 1000 characters or fewer').optional()
   ),
-});
+}).transform((data) => ({
+  ...data,
+  quantity: data.quantity ?? data.guestCount ?? 1,
+  guestCount: data.guestCount ?? data.quantity ?? 1,
+}));
 
 export const updateBookingSchema = z
   .object({
