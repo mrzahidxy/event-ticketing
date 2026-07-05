@@ -30,6 +30,11 @@ export const organizerController = {
     res.status(200).json(successResponse(organizer));
   },
 
+  listPublic: async (_req: Request, res: Response) => {
+    const organizers = await organizerService.listPublic();
+    res.status(200).json(successResponse(organizers));
+  },
+
   getPublicById: async (req: Request, res: Response) => {
     const { organizerId } = req.params as { organizerId: string };
     const organizer = await organizerService.getPublicById(organizerId);

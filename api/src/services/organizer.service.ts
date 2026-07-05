@@ -252,6 +252,49 @@ export const organizerService = {
     return scope.organizer;
   },
 
+  listPublic: async (): Promise<PublicOrganizerLanding[]> => {
+    const now = new Date();
+    const organizers = await prisma.organizer.findMany({
+      where: { isSuspended: false },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        name: true,
+        isSuspended: true,
+        createdAt: true,
+        updatedAt: true,
+        events: {
+          where: { isPublished: true },
+          orderBy: { createdAt: 'desc' },
+          select: {
+            ...PUBLIC_EVENT_SELECT,
+            ticketTiers: {
+              where: {
+                isActive: true,
+                AND: [
+                  { OR: [{ salesStartAt: null }, { salesStartAt: { lte: now } }] },
+                  { OR: [{ salesEndAt: null }, { salesEndAt: { gte: now } }] },
+                  { OR: [{ quantityTotal: null }, { quantitySold: { lt: prisma.ticketTier.fields.quantityTotal } }] },
+                ],
+              },
+              orderBy: { id: 'asc' },
+              select: PUBLIC_TICKET_TIER_SELECT,
+            },
+          },
+        },
+      },
+    });
+
+    return organizers.map(({ events, isSuspended, ...rest }) => ({
+      organizer: {
+        ...rest,
+        status: isSuspended ? 'SUSPENDED' : 'ACTIVE',
+      },
+      events,
+      publishedEvents: events,
+    }));
+  },
+
   getPublicById: async (organizerId: string): Promise<PublicOrganizerLanding> => {
     const now = new Date();
     const organizer = await prisma.organizer.findUnique({
