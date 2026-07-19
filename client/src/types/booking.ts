@@ -32,6 +32,8 @@ export type BookingInput = {
   eventId?: string
   checkIn: string
   checkOut: string
+  quantity: number
+  ticketTierId: number
   totalPrice?: number
   notes?: string
 }

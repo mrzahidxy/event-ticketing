@@ -363,6 +363,44 @@ const createBookingWithTier = async (input: {
   return { booking, event, tier, quantity: input.quantity, lineTotal };
 };
 
+export const releaseBookingInventoryReservation = async (
+  tx: Prisma.TransactionClient,
+  bookingId: number
+) => {
+  const booking = await tx.booking.findUnique({
+    where: { id: bookingId },
+    select: {
+      cancelledAt: true,
+      items: {
+        select: {
+          ticketTierId: true,
+          quantity: true,
+        },
+      },
+    },
+  });
+
+  if (!booking || booking.cancelledAt || booking.items.length === 0) {
+    return false;
+  }
+
+  const reservedByTier = new Map<number, number>();
+
+  for (const item of booking.items) {
+    reservedByTier.set(item.ticketTierId, (reservedByTier.get(item.ticketTierId) ?? 0) + item.quantity);
+  }
+
+  for (const [ticketTierId, quantity] of reservedByTier.entries()) {
+    await tx.$executeRaw`
+      UPDATE "TicketTier"
+      SET "quantitySold" = GREATEST("quantitySold" - ${quantity}, 0), "updatedAt" = NOW()
+      WHERE "id" = ${ticketTierId}
+    `;
+  }
+
+  return true;
+};
+
 type UserBookingHistoryItem = {
   id: number;
   eventId: string | null;
@@ -863,9 +901,17 @@ export const bookingService = {
       throw new HttpError(400, 'No valid booking update fields provided');
     }
 
-    const booking = await prisma.booking.update({
-      where: { id: bookingId },
-      data: updateData,
+    const booking = await prisma.$transaction(async (tx) => {
+      if (input.status === BookingStatus.CANCELLED) {
+        const releasedInventory = await releaseBookingInventoryReservation(tx, bookingId);
+
+        updateData.cancelledAt = existing.cancelledAt ?? (releasedInventory ? new Date() : existing.cancelledAt);
+      }
+
+      return tx.booking.update({
+        where: { id: bookingId },
+        data: updateData,
+      });
     });
 
     if (cache.isConnectedToRedis()) {
@@ -882,13 +928,18 @@ export const bookingService = {
   },
 
   remove: async (bookingId: number) => {
-    const existing = await prisma.booking.findUnique({ where: { id: bookingId } });
+    const existing = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: { id: true, userId: true },
+    });
 
     if (!existing) {
       throw new HttpError(404, 'Booking not found');
     }
 
     const result = await prisma.$transaction(async (tx) => {
+      await releaseBookingInventoryReservation(tx, bookingId);
+
       await tx.payment.deleteMany({
         where: { bookingId },
       });

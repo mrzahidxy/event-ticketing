@@ -28,6 +28,8 @@ export type CreateBookingRequest = {
   checkIn: string
   checkOut: string
   eventId: string
+  quantity: number
+  ticketTierId: number
 }
 
 export type UpdateBookingRequest = {

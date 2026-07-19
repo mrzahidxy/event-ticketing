@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import { BookingStatus, PaymentStatus, Prisma, Role } from '@prisma/client';
 
 import { CreateCheckoutSessionInput } from '../schemas/payment.schema';
+import { releaseBookingInventoryReservation } from '../services/booking.service';
 import { AuthenticatedUser } from '../types/user';
 import { env } from '../utils/env';
 import { HttpError } from '../utils/http-error';
@@ -42,7 +43,7 @@ const syncCheckoutSession = async (
 
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
-    select: { id: true, userId: true },
+    select: { id: true, userId: true, currency: true, cancelledAt: true, confirmedAt: true },
   });
 
   if (!booking) {
@@ -55,14 +56,14 @@ const syncCheckoutSession = async (
       update: {
         bookingId,
         amount: amountFromCents(session.amount_total),
-        currency: session.currency ?? env.STRIPE_CURRENCY,
+        currency: session.currency ?? booking.currency,
         status: paymentStatus,
         stripePaymentIntentId: paymentIntentIdFromSession(session),
       },
       create: {
         bookingId,
         amount: amountFromCents(session.amount_total),
-        currency: session.currency ?? env.STRIPE_CURRENCY,
+        currency: session.currency ?? booking.currency,
         status: paymentStatus,
         stripeCheckoutSessionId: session.id,
         stripePaymentIntentId: paymentIntentIdFromSession(session),
@@ -70,9 +71,26 @@ const syncCheckoutSession = async (
     });
 
     if (bookingStatus) {
+      const bookingUpdateData: {
+        status: BookingStatus;
+        cancelledAt?: Date | null;
+        confirmedAt?: Date | null;
+      } = { status: bookingStatus };
+
+      if (bookingStatus === BookingStatus.CANCELLED) {
+        const releasedInventory = await releaseBookingInventoryReservation(tx, bookingId);
+
+        bookingUpdateData.cancelledAt = booking.cancelledAt ?? (releasedInventory ? new Date() : booking.cancelledAt);
+      }
+
+      if (bookingStatus === BookingStatus.CONFIRMED) {
+        bookingUpdateData.confirmedAt = booking.confirmedAt ?? new Date();
+        bookingUpdateData.cancelledAt = null;
+      }
+
       await tx.booking.update({
         where: { id: bookingId },
-        data: { status: bookingStatus },
+        data: bookingUpdateData,
       });
     }
   });
@@ -126,7 +144,7 @@ export const paymentService = {
     const lineItem: Stripe.Checkout.SessionCreateParams.LineItem = {
       quantity: 1,
       price_data: {
-        currency: env.STRIPE_CURRENCY,
+        currency: booking.currency,
         product_data: {
           name: `Booking for ${booking.event.name}`,
           description: booking.notes ?? undefined,
@@ -156,13 +174,13 @@ export const paymentService = {
       where: { stripeCheckoutSessionId: session.id },
       update: {
         amount: booking.totalAmount,
-        currency: env.STRIPE_CURRENCY,
+        currency: booking.currency,
         status: PaymentStatus.PENDING,
       },
       create: {
         bookingId: booking.id,
         amount: booking.totalAmount,
-        currency: env.STRIPE_CURRENCY,
+        currency: booking.currency,
         status: PaymentStatus.PENDING,
         stripeCheckoutSessionId: session.id,
       },
