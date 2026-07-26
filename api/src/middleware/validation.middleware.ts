@@ -32,7 +32,16 @@ export const validateRequest =
       return;
     }
 
-    (req as Request & Record<RequestProperty, unknown>)[property] = result.data;
+    if (property === 'query') {
+      Object.defineProperty(req, 'query', {
+        value: result.data,
+        writable: true,
+        configurable: true,
+        enumerable: true,
+      });
+    } else {
+      (req as Request & Record<RequestProperty, unknown>)[property] = result.data;
+    }
 
     next();
   };

@@ -60,23 +60,56 @@ export function PublicOrganizerBookingForm({
       fullName: session?.user?.name ?? '',
       guestCount: 1,
       notes: '',
+      quantity: 1,
+      ticketTierId: events.find((event) => event.id === (initialEventId ?? events[0]?.id))?.ticketTiers?.[0]?.id ?? 0,
       phone: '',
     },
   })
 
   const selectedEventId = form.watch('eventId')
+  const selectedTicketTierId = form.watch('ticketTierId')
   const selectedEvent = events.find((event) => event.id === selectedEventId) ?? null
+  const selectedEventTiers = selectedEvent?.ticketTiers ?? []
+  const selectedTier =
+    selectedEventTiers.find((tier) => tier.id === Number(selectedTicketTierId)) ??
+    selectedEventTiers[0] ??
+    null
+  const selectedTierAvailable = selectedTier?.quantityTotal === null
+    ? null
+    : selectedTier
+      ? Math.max(selectedTier.quantityTotal - selectedTier.quantitySold, 0)
+      : null
 
   useEffect(() => {
-    if (initialEventId) {
-      form.setValue('eventId', initialEventId, { shouldDirty: false, shouldValidate: true })
+    const eventId = initialEventId || form.getValues('eventId') || events[0]?.id
+    const event = events.find((item) => item.id === eventId) ?? events[0]
+
+    if (event?.id) {
+      form.setValue('eventId', event.id, { shouldDirty: false, shouldValidate: true })
+      form.setValue('ticketTierId', event.ticketTiers?.[0]?.id ?? 0, {
+        shouldDirty: false,
+        shouldValidate: true,
+      })
+    }
+  }, [events, form, initialEventId])
+
+  useEffect(() => {
+    if (!selectedEvent) {
       return
     }
 
-    if (!form.getValues('eventId') && events[0]?.id) {
-      form.setValue('eventId', events[0].id, { shouldDirty: false, shouldValidate: true })
+    const ticketTiers = selectedEvent.ticketTiers ?? []
+    const tierBelongsToEvent = ticketTiers.some(
+      (tier) => tier.id === Number(form.getValues('ticketTierId')),
+    )
+
+    if (!tierBelongsToEvent) {
+      form.setValue('ticketTierId', ticketTiers[0]?.id ?? 0, {
+        shouldDirty: true,
+        shouldValidate: true,
+      })
     }
-  }, [events, form, initialEventId])
+  }, [form, selectedEvent])
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -108,6 +141,8 @@ export function PublicOrganizerBookingForm({
         guestCount: 1,
         notes: '',
         phone: '',
+        quantity: 1,
+        ticketTierId: events.find((event) => event.id === (initialEventId ?? events[0]?.id))?.ticketTiers?.[0]?.id ?? 0,
       })
     },
     onError: (error) => {
@@ -115,7 +150,7 @@ export function PublicOrganizerBookingForm({
     },
   })
 
-  const canSubmit = events.length > 0 && !mutation.isPending && status !== 'loading'
+  const canSubmit = events.length > 0 && Boolean(selectedTier) && !mutation.isPending && status !== 'loading'
 
   const handleSubmit = form.handleSubmit((values) => {
     form.clearErrors()
@@ -234,21 +269,62 @@ export function PublicOrganizerBookingForm({
             </FormField>
           </div>
 
-          <FormField
-            label="Guest Count"
-            error={form.formState.errors.guestCount?.message}
-            htmlFor="public-booking-guest-count"
-            required
-          >
-            <Input
-              id="public-booking-guest-count"
-              type="number"
-              min={1}
-              max={20}
-              disabled={mutation.isPending}
-              {...form.register('guestCount', { valueAsNumber: true })}
-            />
-          </FormField>
+          <div className="grid gap-5 md:grid-cols-2">
+            <FormField
+              label="Ticket Tier"
+              error={form.formState.errors.ticketTierId?.message}
+              htmlFor="public-booking-ticket-tier"
+              required
+              description={
+                selectedEventTiers.length
+                  ? 'Choose an available ticket tier for this event.'
+                  : 'No ticket tiers are currently available for this event.'
+              }
+            >
+              <Select
+                id="public-booking-ticket-tier"
+                disabled={!selectedEventTiers.length || mutation.isPending}
+                {...form.register('ticketTierId', { valueAsNumber: true })}
+              >
+                <option value={0}>Select a ticket tier</option>
+                {selectedEventTiers.map((tier) => {
+                  const available = tier.quantityTotal === null
+                    ? 'Unlimited'
+                    : Math.max(tier.quantityTotal - tier.quantitySold, 0)
+
+                  return (
+                    <option key={tier.id} value={tier.id}>
+                      {tier.name} — {tier.price.toLocaleString('en-US', {
+                        style: 'currency',
+                        currency: tier.currency.toUpperCase(),
+                      })} {tier.quantityTotal === null ? '(Unlimited)' : `(${available} left)`}
+                    </option>
+                  )
+                })}
+              </Select>
+            </FormField>
+
+            <FormField
+              label="Quantity"
+              error={form.formState.errors.quantity?.message}
+              htmlFor="public-booking-quantity"
+              required
+              description={
+                selectedTierAvailable === null
+                  ? 'Unlimited availability.'
+                  : `${selectedTierAvailable} ticket${selectedTierAvailable === 1 ? '' : 's'} available.`
+              }
+            >
+              <Input
+                id="public-booking-quantity"
+                type="number"
+                min={1}
+                max={selectedTierAvailable ?? undefined}
+                disabled={mutation.isPending || !selectedTier}
+                {...form.register('quantity', { valueAsNumber: true })}
+              />
+            </FormField>
+          </div>
 
           <div className="grid gap-5 md:grid-cols-3">
             <FormField
@@ -331,12 +407,16 @@ export function PublicOrganizerBookingForm({
                 </div>
                 <div className="flex flex-col items-end gap-2">
                   <Badge variant="outline">Published</Badge>
-                  <span className="text-sm font-semibold text-slate-900">
-                    {selectedEvent.price.toLocaleString('en-US', {
-                      style: 'currency',
-                      currency: 'USD',
-                    })}
-                  </span>
+                  {selectedTier ? (
+                    <span className="text-right text-sm font-semibold text-slate-900">
+                      {selectedTier.name}: {selectedTier.price.toLocaleString('en-US', {
+                        style: 'currency',
+                        currency: selectedTier.currency.toUpperCase(),
+                      })}
+                    </span>
+                  ) : (
+                    <span className="text-sm font-semibold text-slate-500">No tiers available</span>
+                  )}
                 </div>
               </div>
             </div>

@@ -5,6 +5,7 @@ import type {
   PaymentMethod,
   PaymentRecord,
   PaymentStatus,
+  TicketTier,
   RbacRoleDefinition,
   UploadRecord,
 } from '@/types/domain'
@@ -383,6 +384,28 @@ export function normalizeOrganizer(payload: unknown): Organizer {
   }
 }
 
+export function normalizeTicketTier(payload: unknown): TicketTier {
+  const record = toObject(payload)
+
+  return {
+    createdAt: toStringValue(record?.createdAt),
+    currency: toStringValue(record?.currency, 'usd').toLowerCase(),
+    description: toNullableString(record?.description),
+    eventId: toStringValue(record?.eventId),
+    id: toNumberValue(record?.id),
+    isActive: toBooleanValue(record?.isActive),
+    name: toStringValue(record?.name),
+    price: toNumberValue(record?.price),
+    quantitySold: toNumberValue(record?.quantitySold),
+    quantityTotal: record?.quantityTotal === null || record?.quantityTotal === undefined
+      ? null
+      : toNumberValue(record?.quantityTotal),
+    salesEndAt: toNullableString(record?.salesEndAt),
+    salesStartAt: toNullableString(record?.salesStartAt),
+    updatedAt: toStringValue(record?.updatedAt),
+  }
+}
+
 export function normalizeEvent(payload: unknown): Event {
   const record = toObject(payload)
 
@@ -398,6 +421,7 @@ export function normalizeEvent(payload: unknown): Event {
     name: toStringValue(record?.name),
     organizerId: toStringValue(record?.organizerId),
     price: toNumberValue(record?.price),
+    ticketTiers: extractList(record?.ticketTiers, ['ticketTiers'], normalizeTicketTier),
     updatedAt: toStringValue(record?.updatedAt),
   }
 }

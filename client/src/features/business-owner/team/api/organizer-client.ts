@@ -6,6 +6,7 @@ import {
   extractList,
   normalizeEvent,
   normalizeOrganizer,
+  normalizeTicketTier,
   normalizeUserLike,
   toObject,
 } from '@/lib/api/normalizers'
@@ -43,6 +44,19 @@ export type UpdateOrganizerEventRequest = {
   isPublished?: boolean
   price?: number
 }
+
+export type CreateTicketTierRequest = {
+  name: string
+  description?: string
+  price: number
+  currency?: string
+  quantityTotal?: number
+  salesStartAt?: string
+  salesEndAt?: string
+  isActive?: boolean
+}
+
+export type UpdateTicketTierRequest = Partial<CreateTicketTierRequest>
 
 export type AddOrganizerStaffRequest = {
   userId: number
@@ -174,6 +188,54 @@ export async function deleteOrganizerEvent(
       auth: true,
     },
   )
+}
+
+export async function listEventTicketTiers(
+  organizerId: string,
+  eventId: string,
+) {
+  const response = await apiClient.get<unknown>(
+    `/api/organizers/${organizerId}/events/${eventId}/ticket-tiers`,
+    {
+      auth: true,
+      cache: 'no-store',
+    },
+  )
+
+  return extractList(response, ['ticketTiers', 'tiers'], normalizeTicketTier)
+}
+
+export async function createEventTicketTier(
+  organizerId: string,
+  eventId: string,
+  input: CreateTicketTierRequest,
+) {
+  const response = await apiClient.post<unknown>(
+    `/api/organizers/${organizerId}/events/${eventId}/ticket-tiers`,
+    input,
+    {
+      auth: true,
+    },
+  )
+
+  return extractEntity(response, ['ticketTier', 'tier'], normalizeTicketTier)
+}
+
+export async function updateEventTicketTier(
+  organizerId: string,
+  eventId: string,
+  ticketTierId: number,
+  input: UpdateTicketTierRequest,
+) {
+  const response = await apiClient.patch<unknown>(
+    `/api/organizers/${organizerId}/events/${eventId}/ticket-tiers/${ticketTierId}`,
+    input,
+    {
+      auth: true,
+    },
+  )
+
+  return extractEntity(response, ['ticketTier', 'tier'], normalizeTicketTier)
 }
 
 export async function listOrganizerStaff(organizerId: string) {

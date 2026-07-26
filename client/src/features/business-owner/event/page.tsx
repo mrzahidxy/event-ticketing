@@ -8,6 +8,7 @@ import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
 
+import { TicketTierManager } from './components/ticket-tier-manager'
 import { DashboardHeader } from '../dashboard/components/dashboard-header'
 import { SectionCard } from '../dashboard/components/section-card'
 import { organizerKeys } from '../team/api/organizer-keys'
@@ -64,6 +65,7 @@ export default function EventPage() {
   const [isEventModalOpen, setEventModalOpen] = useState(false)
   const [editingEventId, setEditingEventId] = useState<string | null>(null)
   const [pendingDeleteEventId, setPendingDeleteEventId] = useState<string | null>(null)
+  const [tierManagerEventId, setTierManagerEventId] = useState<string | null>(null)
 
   const eventForm = useForm<OrganizerEventFormValues>({
     resolver: zodResolver(organizerEventFormSchema),
@@ -138,6 +140,7 @@ export default function EventPage() {
   })
 
   const events = eventsQuery.data ?? []
+  const tierManagerEvent = events.find((event) => event.id === tierManagerEventId) ?? null
   const isSavingEvent = createEventMutation.isPending || updateEventMutation.isPending
 
   const openCreateEventModal = () => {
@@ -265,6 +268,13 @@ export default function EventPage() {
                         </TableCell>
                         <TableCell className="px-4 py-4 text-sm text-slate-600">
                           <div className="flex items-center justify-end gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setTierManagerEventId(event.id)}
+                            >
+                              Manage tiers
+                            </Button>
                             {canManageOrganizer ? (
                               <>
                                 <Button
@@ -304,6 +314,27 @@ export default function EventPage() {
           </div>
         </SectionCard>
       )}
+
+      <Modal
+        open={Boolean(tierManagerEvent)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setTierManagerEventId(null)
+          }
+        }}
+        title="Manage ticket tiers"
+        description="View, create, and update ticket tiers for this event."
+        className="max-w-5xl"
+      >
+        {organizerId && tierManagerEvent ? (
+          <TicketTierManager
+            organizerId={organizerId}
+            eventId={tierManagerEvent.id}
+            eventName={tierManagerEvent.name}
+            canManage={canManageOrganizer}
+          />
+        ) : null}
+      </Modal>
 
       <Modal
         open={isEventModalOpen}

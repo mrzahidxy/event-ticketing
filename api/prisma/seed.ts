@@ -43,7 +43,25 @@ const usersToSeed: SeedUser[] = [
   },
   {
     email: seedEnv.SEED_USER_EMAIL,
-    name: 'Ticket Buyer',
+    name: 'Ticket Buyer One',
+    role: Role.USER,
+    password: seedEnv.SEED_USER_PASSWORD,
+  },
+  {
+    email: 'owner2@example.com',
+    name: 'Second Organizer Owner',
+    role: Role.OWNER,
+    password: seedEnv.SEED_OWNER_PASSWORD,
+  },
+  {
+    email: 'staff2@example.com',
+    name: 'Second Organizer Staff',
+    role: Role.STAFF,
+    password: seedEnv.SEED_STAFF_PASSWORD,
+  },
+  {
+    email: 'user2@example.com',
+    name: 'Ticket Buyer Two',
     role: Role.USER,
     password: seedEnv.SEED_USER_PASSWORD,
   },
@@ -97,9 +115,12 @@ async function main(): Promise<void> {
   const owner = usersByEmail.get(seedEnv.SEED_OWNER_EMAIL);
   const staff = usersByEmail.get(seedEnv.SEED_STAFF_EMAIL);
   const buyer = usersByEmail.get(seedEnv.SEED_USER_EMAIL);
+  const owner2 = usersByEmail.get('owner2@example.com');
+  const staff2 = usersByEmail.get('staff2@example.com');
+  const buyer2 = usersByEmail.get('user2@example.com');
 
-  if (!owner || !staff || !buyer) {
-    throw new Error('Seed dependency resolution failed for owner, staff, or user');
+  if (!owner || !staff || !buyer || !owner2 || !staff2 || !buyer2) {
+    throw new Error('Seed dependency resolution failed for owners, staff, or users');
   }
 
   const organizer = await prisma.organizer.create({
@@ -115,12 +136,32 @@ async function main(): Promise<void> {
     },
   });
 
-  await prisma.organizerMembership.create({
+  const organizer2 = await prisma.organizer.create({
     data: {
-      organizerId: organizer.id,
-      userId: staff.id,
-      role: OrganizerRole.STAFF,
+      name: 'Southridge Events',
+      ownerId: owner2.id,
+      isSuspended: false,
+      suspendedAt: null,
     },
+    select: {
+      id: true,
+      name: true,
+    },
+  });
+
+  await prisma.organizerMembership.createMany({
+    data: [
+      {
+        organizerId: organizer.id,
+        userId: staff.id,
+        role: OrganizerRole.STAFF,
+      },
+      {
+        organizerId: organizer2.id,
+        userId: staff2.id,
+        role: OrganizerRole.STAFF,
+      },
+    ],
   });
 
   const publishedEvent = await prisma.event.create({
@@ -136,24 +177,62 @@ async function main(): Promise<void> {
     },
   });
 
-  await prisma.event.create({
+  const unpublishedEvent = await prisma.event.create({
     data: {
       organizerId: organizer.id,
       name: 'Owner Strategy Sprint',
       description: 'Unpublished organizer-only planning event.',
       isPublished: false,
     },
+    select: {
+      id: true,
+      name: true,
+    },
   });
+
+  const secondPublishedEvent = await prisma.event.create({
+    data: {
+      organizerId: organizer2.id,
+      name: 'Southridge Expo 2026',
+      description: 'Second organizer published event for cross-tenant testing.',
+      isPublished: true,
+    },
+    select: {
+      id: true,
+      name: true,
+    },
+  });
+
+  const secondUnpublishedEvent = await prisma.event.create({
+    data: {
+      organizerId: organizer2.id,
+      name: 'Southridge Private Preview',
+      description: 'Second organizer unpublished event for owner/admin tests.',
+      isPublished: false,
+    },
+    select: {
+      id: true,
+      name: true,
+    },
+  });
+
+  const now = new Date();
+  const salesStartedAt = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const salesEndsAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+  const expiredSalesEndAt = new Date(now.getTime() - 60 * 60 * 1000);
+  const futureSalesStartAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
   const publishedEventTier = await prisma.ticketTier.create({
     data: {
       eventId: publishedEvent.id,
       name: 'General Admission',
-      description: 'Standard entry pass',
+      description: 'Standard entry pass for public booking flows',
       price: new Prisma.Decimal('199.00'),
       currency: 'usd',
       quantityTotal: 500,
-      quantitySold: 2,
+      quantitySold: 4,
+      salesStartAt: salesStartedAt,
+      salesEndAt: salesEndsAt,
       isActive: true,
     },
     select: {
@@ -161,6 +240,139 @@ async function main(): Promise<void> {
       price: true,
       currency: true,
     },
+  });
+
+  const secondEventTier = await prisma.ticketTier.create({
+    data: {
+      eventId: secondPublishedEvent.id,
+      name: 'Expo General Admission',
+      description: 'Second organizer standard public-bookable tier',
+      price: new Prisma.Decimal('79.00'),
+      currency: 'usd',
+      quantityTotal: 100,
+      quantitySold: 1,
+      salesStartAt: salesStartedAt,
+      salesEndAt: salesEndsAt,
+      isActive: true,
+    },
+    select: {
+      id: true,
+      price: true,
+      currency: true,
+    },
+  });
+
+  await prisma.ticketTier.createMany({
+    data: [
+      {
+        eventId: publishedEvent.id,
+        name: 'VIP Admission',
+        description: 'Premium public-bookable tier with unlimited inventory',
+        price: new Prisma.Decimal('349.00'),
+        currency: 'usd',
+        quantityTotal: null,
+        quantitySold: 0,
+        salesStartAt: salesStartedAt,
+        salesEndAt: salesEndsAt,
+        isActive: true,
+      },
+      {
+        eventId: publishedEvent.id,
+        name: 'Sold Out Early Bird',
+        description: 'Sold-out tier used to verify public filtering and booking validation',
+        price: new Prisma.Decimal('99.00'),
+        currency: 'usd',
+        quantityTotal: 25,
+        quantitySold: 25,
+        salesStartAt: salesStartedAt,
+        salesEndAt: salesEndsAt,
+        isActive: true,
+      },
+      {
+        eventId: publishedEvent.id,
+        name: 'Future Release',
+        description: 'Future sales window tier used to verify booking validation',
+        price: new Prisma.Decimal('249.00'),
+        currency: 'usd',
+        quantityTotal: 100,
+        quantitySold: 0,
+        salesStartAt: futureSalesStartAt,
+        salesEndAt: null,
+        isActive: true,
+      },
+      {
+        eventId: publishedEvent.id,
+        name: 'Expired Promo',
+        description: 'Expired tier used to verify booking validation',
+        price: new Prisma.Decimal('149.00'),
+        currency: 'usd',
+        quantityTotal: 100,
+        quantitySold: 0,
+        salesStartAt: null,
+        salesEndAt: expiredSalesEndAt,
+        isActive: true,
+      },
+      {
+        eventId: publishedEvent.id,
+        name: 'Inactive Holdback',
+        description: 'Inactive tier used to verify booking validation',
+        price: new Prisma.Decimal('129.00'),
+        currency: 'usd',
+        quantityTotal: 50,
+        quantitySold: 0,
+        salesStartAt: null,
+        salesEndAt: null,
+        isActive: false,
+      },
+      {
+        eventId: unpublishedEvent.id,
+        name: 'Internal Planning Seat',
+        description: 'Tier attached to an unpublished event for owner/admin testing',
+        price: new Prisma.Decimal('0.00'),
+        currency: 'usd',
+        quantityTotal: 20,
+        quantitySold: 0,
+        salesStartAt: null,
+        salesEndAt: null,
+        isActive: true,
+      },
+      {
+        eventId: secondPublishedEvent.id,
+        name: 'Expo VIP Unlimited',
+        description: 'Second organizer unlimited public-bookable tier',
+        price: new Prisma.Decimal('159.00'),
+        currency: 'usd',
+        quantityTotal: null,
+        quantitySold: 0,
+        salesStartAt: salesStartedAt,
+        salesEndAt: salesEndsAt,
+        isActive: true,
+      },
+      {
+        eventId: secondPublishedEvent.id,
+        name: 'Expo Sold Out',
+        description: 'Second organizer sold-out tier for inventory tests',
+        price: new Prisma.Decimal('49.00'),
+        currency: 'usd',
+        quantityTotal: 10,
+        quantitySold: 10,
+        salesStartAt: salesStartedAt,
+        salesEndAt: salesEndsAt,
+        isActive: true,
+      },
+      {
+        eventId: secondUnpublishedEvent.id,
+        name: 'Preview Internal Seat',
+        description: 'Second organizer unpublished-event tier',
+        price: new Prisma.Decimal('0.00'),
+        currency: 'usd',
+        quantityTotal: 15,
+        quantitySold: 0,
+        salesStartAt: null,
+        salesEndAt: null,
+        isActive: true,
+      },
+    ],
   });
 
   const ticketCodeBase = `NWL-2026-${publishedEvent.id.slice(0, 8)}`;
@@ -231,6 +443,68 @@ async function main(): Promise<void> {
     },
   });
 
+  const secondPendingQuantity = 1;
+  const secondPendingAmount = secondEventTier.price.mul(secondPendingQuantity);
+
+  const secondPendingBooking = await prisma.booking.create({
+    data: {
+      userId: buyer2.id,
+      organizerId: organizer2.id,
+      eventId: secondPublishedEvent.id,
+      fullName: buyer2.name ?? 'Ticket Buyer Two',
+      email: buyer2.email,
+      phone: '+1 555 777 8888',
+      subtotalAmount: secondPendingAmount,
+      totalAmount: secondPendingAmount,
+      currency: secondEventTier.currency,
+      status: BookingStatus.PENDING,
+      notes: 'Second organizer pending booking for tenant-scope testing',
+      items: {
+        create: {
+          ticketTierId: secondEventTier.id,
+          tierNameSnapshot: 'Expo General Admission',
+          unitPriceSnapshot: secondEventTier.price,
+          quantity: secondPendingQuantity,
+          lineTotal: secondPendingAmount,
+        },
+      },
+    },
+    select: {
+      id: true,
+      totalAmount: true,
+    },
+  });
+
+  const cancelledBooking = await prisma.booking.create({
+    data: {
+      userId: buyer.id,
+      organizerId: organizer.id,
+      eventId: publishedEvent.id,
+      fullName: 'Cancelled Buyer',
+      email: 'cancelled.buyer@example.com',
+      phone: '+1 555 999 0000',
+      subtotalAmount: publishedEventTier.price,
+      totalAmount: publishedEventTier.price,
+      currency: publishedEventTier.currency,
+      status: BookingStatus.CANCELLED,
+      cancelledAt: new Date('2026-06-22T18:00:00.000Z'),
+      notes: 'Cancelled booking for status filter testing',
+      items: {
+        create: {
+          ticketTierId: publishedEventTier.id,
+          tierNameSnapshot: 'General Admission',
+          unitPriceSnapshot: publishedEventTier.price,
+          quantity: 1,
+          lineTotal: publishedEventTier.price,
+        },
+      },
+    },
+    select: {
+      id: true,
+      totalAmount: true,
+    },
+  });
+
   await prisma.payment.create({
     data: {
       bookingId: pendingBooking.id,
@@ -250,6 +524,28 @@ async function main(): Promise<void> {
       status: PaymentStatus.SUCCEEDED,
       stripeCheckoutSessionId: 'seed_session_confirmed_booking',
       stripePaymentIntentId: 'seed_pi_confirmed_booking',
+    },
+  });
+
+  await prisma.payment.create({
+    data: {
+      bookingId: secondPendingBooking.id,
+      amount: secondPendingBooking.totalAmount,
+      currency: secondEventTier.currency,
+      status: PaymentStatus.PENDING,
+      stripeCheckoutSessionId: 'seed_session_second_org_pending',
+      stripePaymentIntentId: null,
+    },
+  });
+
+  await prisma.payment.create({
+    data: {
+      bookingId: cancelledBooking.id,
+      amount: cancelledBooking.totalAmount,
+      currency: publishedEventTier.currency,
+      status: PaymentStatus.FAILED,
+      stripeCheckoutSessionId: 'seed_session_cancelled_booking',
+      stripePaymentIntentId: 'seed_pi_cancelled_booking',
     },
   });
 
@@ -289,12 +585,12 @@ async function main(): Promise<void> {
   });
 
   console.info('Database has been seeded with lean ticketing data');
-  console.info(`Users: ${usersToSeed.length} (admin, owner, staff, user)`);
-  console.info('Organizer: Northwind Live');
-  console.info('Events: 2 (1 published, 1 unpublished)');
-  console.info('Ticket tiers: 1 (General Admission)');
-  console.info('Bookings: 2 (1 pending, 1 confirmed)');
-  console.info('Payments: 2 (1 pending, 1 succeeded)');
+  console.info(`Users: ${usersToSeed.length} (admin, 2 owners, 2 staff, 2 public users)`);
+  console.info('Organizers: 2 (Northwind Live, Southridge Events)');
+  console.info('Events: 4 (2 published, 2 unpublished)');
+  console.info('Ticket tiers: 11 (4 public-bookable, sold-out/future/expired/inactive/unpublished fixtures)');
+  console.info('Bookings: 4 (2 pending, 1 confirmed, 1 cancelled)');
+  console.info('Payments: 4 (2 pending, 1 succeeded, 1 failed)');
   console.info('Tickets: 2 (1 checked in, 1 issued)');
   console.info('Ticket check-ins: 1 (manual)');
 }

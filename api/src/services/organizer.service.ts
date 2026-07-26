@@ -26,6 +26,36 @@ const EVENT_SELECT = {
   updatedAt: true,
 } as const;
 
+const TICKET_TIER_SELECT = {
+  id: true,
+  eventId: true,
+  name: true,
+  description: true,
+  price: true,
+  currency: true,
+  quantityTotal: true,
+  quantitySold: true,
+  salesStartAt: true,
+  salesEndAt: true,
+  isActive: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
+const PUBLIC_TICKET_TIER_SELECT = {
+  id: true,
+  eventId: true,
+  name: true,
+  description: true,
+  price: true,
+  currency: true,
+  quantityTotal: true,
+  quantitySold: true,
+  salesStartAt: true,
+  salesEndAt: true,
+  isActive: true,
+} as const;
+
 const PUBLIC_EVENT_SELECT = {
   id: true,
   organizerId: true,
@@ -36,22 +66,19 @@ const PUBLIC_EVENT_SELECT = {
   updatedAt: true,
 } as const;
 
-const PUBLIC_ORGANIZER_SELECT = {
-  id: true,
-  name: true,
-  isSuspended: true,
-  createdAt: true,
-  updatedAt: true,
-  events: {
-    where: { isPublished: true },
-    orderBy: { createdAt: 'desc' },
-    select: PUBLIC_EVENT_SELECT,
-  },
-} as const;
 
 type OrganizerDetail = Prisma.OrganizerGetPayload<{ select: typeof ORGANIZER_SELECT }>;
 type EventDetail = Prisma.EventGetPayload<{ select: typeof EVENT_SELECT }>;
-type PublicEventDetail = Prisma.EventGetPayload<{ select: typeof PUBLIC_EVENT_SELECT }>;
+type TicketTierDetail = Prisma.TicketTierGetPayload<{ select: typeof TICKET_TIER_SELECT }>;
+type PublicEventDetail = Prisma.EventGetPayload<{
+  select: typeof PUBLIC_EVENT_SELECT & {
+    ticketTiers: {
+      where: Prisma.TicketTierWhereInput;
+      orderBy: { id: 'asc' };
+      select: typeof PUBLIC_TICKET_TIER_SELECT;
+    };
+  };
+}>;
 type OrganizerStatusDetail = {
   id: string;
   name: string;
@@ -126,6 +153,28 @@ const assertOrganizerActive = (scope: OrganizerScope, action: string) => {
   if (!scope.isAdmin && scope.organizer.isSuspended) {
     throw new HttpError(403, `Cannot ${action} while the organizer is suspended`);
   }
+};
+
+const ensureEventInOrganizer = async (organizerId: string, eventId: string): Promise<{ id: string }> => {
+  const event = await prisma.event.findFirst({
+    where: { id: eventId, organizerId },
+    select: { id: true },
+  });
+
+  if (event) {
+    return event;
+  }
+
+  const eventExists = await prisma.event.findUnique({
+    where: { id: eventId },
+    select: { id: true },
+  });
+
+  if (eventExists) {
+    throw new HttpError(403, 'Forbidden: event is outside this organizer');
+  }
+
+  throw new HttpError(404, 'Event not found');
 };
 
 const ensureUniqueEventName = async (
@@ -203,10 +252,79 @@ export const organizerService = {
     return scope.organizer;
   },
 
+  listPublic: async (): Promise<PublicOrganizerLanding[]> => {
+    const now = new Date();
+    const organizers = await prisma.organizer.findMany({
+      where: { isSuspended: false },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        name: true,
+        isSuspended: true,
+        createdAt: true,
+        updatedAt: true,
+        events: {
+          where: { isPublished: true },
+          orderBy: { createdAt: 'desc' },
+          select: {
+            ...PUBLIC_EVENT_SELECT,
+            ticketTiers: {
+              where: {
+                isActive: true,
+                AND: [
+                  { OR: [{ salesStartAt: null }, { salesStartAt: { lte: now } }] },
+                  { OR: [{ salesEndAt: null }, { salesEndAt: { gte: now } }] },
+                  { OR: [{ quantityTotal: null }, { quantitySold: { lt: prisma.ticketTier.fields.quantityTotal } }] },
+                ],
+              },
+              orderBy: { id: 'asc' },
+              select: PUBLIC_TICKET_TIER_SELECT,
+            },
+          },
+        },
+      },
+    });
+
+    return organizers.map(({ events, isSuspended, ...rest }) => ({
+      organizer: {
+        ...rest,
+        status: isSuspended ? 'SUSPENDED' : 'ACTIVE',
+      },
+      events,
+      publishedEvents: events,
+    }));
+  },
+
   getPublicById: async (organizerId: string): Promise<PublicOrganizerLanding> => {
+    const now = new Date();
     const organizer = await prisma.organizer.findUnique({
       where: { id: organizerId },
-      select: PUBLIC_ORGANIZER_SELECT,
+      select: {
+        id: true,
+        name: true,
+        isSuspended: true,
+        createdAt: true,
+        updatedAt: true,
+        events: {
+          where: { isPublished: true },
+          orderBy: { createdAt: 'desc' },
+          select: {
+            ...PUBLIC_EVENT_SELECT,
+            ticketTiers: {
+              where: {
+                isActive: true,
+                AND: [
+                  { OR: [{ salesStartAt: null }, { salesStartAt: { lte: now } }] },
+                  { OR: [{ salesEndAt: null }, { salesEndAt: { gte: now } }] },
+                  { OR: [{ quantityTotal: null }, { quantitySold: { lt: prisma.ticketTier.fields.quantityTotal } }] },
+                ],
+              },
+              orderBy: { id: 'asc' },
+              select: PUBLIC_TICKET_TIER_SELECT,
+            },
+          },
+        },
+      },
     });
 
     if (!organizer) {
@@ -430,17 +548,7 @@ export const organizerService = {
     assertOwnerOrAdmin(scope, 'delete events');
     assertOrganizerActive(scope, 'delete events');
 
-    const event = await prisma.event.findFirst({
-      where: {
-        id: eventId,
-        organizerId: scope.organizer.id,
-      },
-      select: { id: true },
-    });
-
-    if (!event) {
-      throw new HttpError(403, 'Forbidden: event is outside this organizer');
-    }
+    const event = await ensureEventInOrganizer(scope.organizer.id, eventId);
 
     await prisma.event.delete({
       where: {
@@ -448,6 +556,151 @@ export const organizerService = {
         organizerId: scope.organizer.id,
       },
     });
+  },
+
+  listTicketTiers: async (
+    organizerId: string,
+    eventId: string,
+    actor: AuthenticatedUser
+  ): Promise<TicketTierDetail[]> => {
+    const scope = await getOrganizerScope(organizerId, actor);
+    assertOwnerOrAdmin(scope, 'view ticket tiers');
+    assertOrganizerActive(scope, 'view ticket tiers');
+    const event = await ensureEventInOrganizer(scope.organizer.id, eventId);
+
+    return prisma.ticketTier.findMany({
+      where: { eventId: event.id },
+      orderBy: { id: 'asc' },
+      select: TICKET_TIER_SELECT,
+    });
+  },
+
+  createTicketTier: async (
+    organizerId: string,
+    eventId: string,
+    input: {
+      name: string;
+      description?: string | null;
+      price: number;
+      currency?: string;
+      quantityTotal?: number;
+      quantitySold?: number;
+      salesStartAt?: Date;
+      salesEndAt?: Date;
+      isActive?: boolean;
+    },
+    actor: AuthenticatedUser
+  ): Promise<TicketTierDetail> => {
+    const scope = await getOrganizerScope(organizerId, actor);
+    assertOwnerOrAdmin(scope, 'create ticket tiers');
+    assertOrganizerActive(scope, 'create ticket tiers');
+    const event = await ensureEventInOrganizer(scope.organizer.id, eventId);
+
+    if (input.quantityTotal !== undefined && (input.quantitySold ?? 0) > input.quantityTotal) {
+      throw new HttpError(400, 'quantitySold cannot be greater than quantityTotal');
+    }
+
+    try {
+      return await prisma.ticketTier.create({
+        data: {
+          eventId: event.id,
+          name: input.name,
+          description: input.description ?? null,
+          price: new Prisma.Decimal(input.price),
+          currency: input.currency ?? 'usd',
+          quantityTotal: input.quantityTotal,
+          quantitySold: input.quantitySold ?? 0,
+          salesStartAt: input.salesStartAt,
+          salesEndAt: input.salesEndAt,
+          isActive: input.isActive ?? true,
+        },
+        select: TICKET_TIER_SELECT,
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new HttpError(409, 'A ticket tier with this name already exists for this event');
+      }
+      throw error;
+    }
+  },
+
+  updateTicketTier: async (
+    organizerId: string,
+    eventId: string,
+    ticketTierId: number,
+    input: {
+      name?: string;
+      description?: string | null;
+      price?: number;
+      currency?: string;
+      quantityTotal?: number;
+      quantitySold?: number;
+      salesStartAt?: Date;
+      salesEndAt?: Date;
+      isActive?: boolean;
+    },
+    actor: AuthenticatedUser
+  ): Promise<TicketTierDetail> => {
+    const scope = await getOrganizerScope(organizerId, actor);
+    assertOwnerOrAdmin(scope, 'update ticket tiers');
+    assertOrganizerActive(scope, 'update ticket tiers');
+    const event = await ensureEventInOrganizer(scope.organizer.id, eventId);
+
+    const existing = await prisma.ticketTier.findFirst({
+      where: {
+        id: ticketTierId,
+        event: {
+          id: event.id,
+          organizerId: scope.organizer.id,
+        },
+      },
+      select: { id: true, quantityTotal: true, quantitySold: true },
+    });
+
+    if (!existing) {
+      const tierExists = await prisma.ticketTier.findUnique({
+        where: { id: ticketTierId },
+        select: { id: true },
+      });
+
+      if (tierExists) {
+        throw new HttpError(403, 'Forbidden: ticket tier is outside this organizer event');
+      }
+
+      throw new HttpError(404, 'Ticket tier not found');
+    }
+
+    const finalQuantityTotal = input.quantityTotal ?? existing.quantityTotal;
+    const finalQuantitySold = input.quantitySold ?? existing.quantitySold;
+
+    if (finalQuantityTotal !== null && finalQuantitySold > finalQuantityTotal) {
+      throw new HttpError(400, 'quantitySold cannot be greater than quantityTotal');
+    }
+
+    const updates: Prisma.TicketTierUpdateInput = {};
+
+    if (input.name !== undefined) updates.name = input.name;
+    if (input.description !== undefined) updates.description = input.description;
+    if (input.price !== undefined) updates.price = new Prisma.Decimal(input.price);
+    if (input.currency !== undefined) updates.currency = input.currency;
+    if (input.quantityTotal !== undefined) updates.quantityTotal = input.quantityTotal;
+    if (input.quantitySold !== undefined) updates.quantitySold = input.quantitySold;
+    if (input.salesStartAt !== undefined) updates.salesStartAt = input.salesStartAt;
+    if (input.salesEndAt !== undefined) updates.salesEndAt = input.salesEndAt;
+    if (input.isActive !== undefined) updates.isActive = input.isActive;
+
+    try {
+      return await prisma.ticketTier.update({
+        where: { id: existing.id },
+        data: updates,
+        select: TICKET_TIER_SELECT,
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new HttpError(409, 'A ticket tier with this name already exists for this event');
+      }
+      throw error;
+    }
   },
 
   listStaff: async (

@@ -62,7 +62,9 @@ export function BookingForm({
     resolver: zodResolver(schema),
     defaultValues: {
       eventId: defaultValues?.eventId ?? '',
+      quantity: defaultValues?.quantity ?? 1,
       status: defaultValues?.status ?? 'PENDING',
+      ticketTierId: defaultValues?.ticketTierId ?? 0,
       checkIn:
         mode === 'create' ? toDateInputValue(defaultValues?.checkIn) : undefined,
       checkOut:
@@ -73,7 +75,9 @@ export function BookingForm({
   useEffect(() => {
     form.reset({
       eventId: defaultValues?.eventId ?? '',
+      quantity: defaultValues?.quantity ?? 1,
       status: defaultValues?.status ?? 'PENDING',
+      ticketTierId: defaultValues?.ticketTierId ?? 0,
       checkIn:
         mode === 'create' ? toDateInputValue(defaultValues?.checkIn) : undefined,
       checkOut:
@@ -81,7 +85,9 @@ export function BookingForm({
     })
   }, [
     defaultValues?.eventId,
+    defaultValues?.quantity,
     defaultValues?.status,
+    defaultValues?.ticketTierId,
     defaultValues?.checkIn,
     defaultValues?.checkOut,
     form,
@@ -93,6 +99,66 @@ export function BookingForm({
     queryFn: () => listOrganizerEvents(organizerId as string),
     enabled: mode === 'create' && Boolean(organizerId),
   })
+  const selectedEventId = form.watch('eventId')
+  const selectedTicketTierId = form.watch('ticketTierId')
+  const selectedEvent =
+    (eventsQuery.data ?? []).find((event) => event.id === selectedEventId) ?? null
+  const selectedEventTiers = selectedEvent?.ticketTiers ?? []
+  const selectedTier =
+    selectedEventTiers.find((tier) => tier.id === Number(selectedTicketTierId)) ??
+    selectedEventTiers[0] ??
+    null
+  const selectedTierAvailable = selectedTier?.quantityTotal === null
+    ? null
+    : selectedTier
+      ? Math.max(selectedTier.quantityTotal - selectedTier.quantitySold, 0)
+      : null
+
+  useEffect(() => {
+    if (mode !== 'create') {
+      return
+    }
+
+    const currentEventId = form.getValues('eventId')
+    const fallbackEvent = (eventsQuery.data ?? [])[0]
+    const event =
+      (eventsQuery.data ?? []).find((item) => item.id === currentEventId) ?? fallbackEvent
+
+    if (!event?.id) {
+      return
+    }
+
+    if (!currentEventId || currentEventId !== event.id) {
+      form.setValue('eventId', event.id, { shouldDirty: false, shouldValidate: true })
+    }
+
+    const currentTierId = Number(form.getValues('ticketTierId'))
+    const tierBelongsToEvent = (event.ticketTiers ?? []).some((tier) => tier.id === currentTierId)
+
+    if (!tierBelongsToEvent) {
+      form.setValue('ticketTierId', event.ticketTiers?.[0]?.id ?? 0, {
+        shouldDirty: false,
+        shouldValidate: true,
+      })
+    }
+  }, [eventsQuery.data, form, mode])
+
+  useEffect(() => {
+    if (mode !== 'create' || !selectedEvent) {
+      return
+    }
+
+    const tierBelongsToEvent = selectedEventTiers.some(
+      (tier) => tier.id === Number(form.getValues('ticketTierId')),
+    )
+
+    if (!tierBelongsToEvent) {
+      form.setValue('ticketTierId', selectedEventTiers[0]?.id ?? 0, {
+        shouldDirty: true,
+        shouldValidate: true,
+      })
+    }
+  }, [form, mode, selectedEvent, selectedEventTiers])
 
   const mutation = useMutation({
     mutationFn: async (values: FormValues) => {
@@ -103,6 +169,8 @@ export function BookingForm({
           checkIn: payload.checkIn,
           checkOut: payload.checkOut,
           eventId: payload.eventId as string,
+          quantity: payload.quantity,
+          ticketTierId: payload.ticketTierId,
         })
       }
 
@@ -219,6 +287,65 @@ export function BookingForm({
         ) : null}
       </div>
 
+      {mode === 'create' ? (
+        <div className="grid gap-5 md:grid-cols-2">
+          <FormField
+            label="Ticket Tier"
+            error={form.formState.errors.ticketTierId?.message}
+            htmlFor="booking-ticket-tier"
+            description={
+              selectedEventTiers.length
+                ? 'Choose an active ticket tier for this event.'
+                : 'No ticket tiers are currently available for this event.'
+            }
+          >
+            <Select
+              id="booking-ticket-tier"
+              disabled={!selectedEventTiers.length || mutation.isPending}
+              {...form.register('ticketTierId', { valueAsNumber: true })}
+            >
+              <option value={0}>Select a ticket tier</option>
+              {selectedEventTiers.map((tier) => {
+                const available = tier.quantityTotal === null
+                  ? 'Unlimited'
+                  : Math.max(tier.quantityTotal - tier.quantitySold, 0)
+
+                return (
+                  <option key={tier.id} value={tier.id}>
+                    {tier.name} - {tier.price.toLocaleString('en-US', {
+                      style: 'currency',
+                      currency: tier.currency.toUpperCase(),
+                    })} {tier.quantityTotal === null ? '(Unlimited)' : `(${available} left)`}
+                  </option>
+                )
+              })}
+            </Select>
+          </FormField>
+
+          <FormField
+            label="Quantity"
+            error={form.formState.errors.quantity?.message}
+            htmlFor="booking-quantity"
+            description={
+              selectedTierAvailable === null
+                ? 'Unlimited availability.'
+                : selectedTierAvailable !== null
+                  ? `${selectedTierAvailable} ticket${selectedTierAvailable === 1 ? '' : 's'} available.`
+                  : 'Select a ticket tier first.'
+            }
+          >
+            <Input
+              id="booking-quantity"
+              type="number"
+              min={1}
+              max={selectedTierAvailable ?? undefined}
+              disabled={mutation.isPending || !selectedTier}
+              {...form.register('quantity', { valueAsNumber: true })}
+            />
+          </FormField>
+        </div>
+      ) : null}
+
       <footer className="flex items-center justify-end gap-3">
         <Button
           type="button"
@@ -232,7 +359,11 @@ export function BookingForm({
           type="submit"
           disabled={
             mutation.isPending ||
-            (mode === 'create' && (!organizerId || !(eventsQuery.data ?? []).length))
+            (mode === 'create' &&
+              (!organizerId ||
+                !(eventsQuery.data ?? []).length ||
+                !selectedTier ||
+                selectedTierAvailable === 0))
           }
         >
           {mutation.isPending ? (

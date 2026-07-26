@@ -9,11 +9,14 @@ import {
   organizerIdParamSchema,
   organizerEventParamsSchema,
   organizerStaffParamsSchema,
+  ticketTierIdParamSchema,
   staffCandidateQuerySchema,
   createOrganizerSchema,
   createEventSchema,
+  createTicketTierSchema,
   updateOrganizerSchema,
   updateEventSchema,
+  updateTicketTierSchema,
 } from '../schemas/organizer.schema';
 import { updateOrganizerStatusSchema } from '../schemas/admin.schema';
 
@@ -77,6 +80,29 @@ router.patch(
   validateRequest(organizerEventParamsSchema, 'params'),
   validateRequest(updateEventSchema),
   organizerController.updateEvent
+);
+
+router.get(
+  '/:organizerId/events/:eventId/ticket-tiers',
+  requireAuth({ permissions: ['ORGANIZER_MANAGE_EVENTS', 'EVENT_READ'] }),
+  validateRequest(organizerEventParamsSchema, 'params'),
+  organizerController.listTicketTiers
+);
+
+router.post(
+  '/:organizerId/events/:eventId/ticket-tiers',
+  requireAuth({ permissions: ['ORGANIZER_MANAGE_EVENTS', 'EVENT_CREATE'] }),
+  validateRequest(organizerEventParamsSchema, 'params'),
+  validateRequest(createTicketTierSchema),
+  organizerController.createTicketTier
+);
+
+router.patch(
+  '/:organizerId/events/:eventId/ticket-tiers/:ticketTierId',
+  requireAuth({ permissions: ['ORGANIZER_MANAGE_EVENTS', 'EVENT_UPDATE'] }),
+  validateRequest(ticketTierIdParamSchema, 'params'),
+  validateRequest(updateTicketTierSchema),
+  organizerController.updateTicketTier
 );
 
 router.delete(

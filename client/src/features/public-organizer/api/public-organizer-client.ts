@@ -14,15 +14,29 @@ export type PublicOrganizerPageData = {
   publishedEvents: Event[]
 }
 
+function normalizePublicOrganizerPageData(payload: unknown): PublicOrganizerPageData {
+  const record = typeof payload === 'object' && payload !== null ? payload as Record<string, unknown> : {}
+
+  return {
+    organizer: extractEntity(record, ['organizer'], normalizeOrganizer),
+    publishedEvents: extractList(record, ['publishedEvents', 'events'], normalizeEvent),
+  }
+}
+
+export async function getPublicOrganizersPage(): Promise<PublicOrganizerPageData[]> {
+  const response = await apiClient.get<unknown>('/api/public/organizers', {
+    cache: 'no-store',
+  })
+
+  return extractList(response, ['organizers', 'items', 'data'], normalizePublicOrganizerPageData)
+}
+
 export async function getPublicOrganizerPage(organizerId: string): Promise<PublicOrganizerPageData> {
   const response = await apiClient.get<unknown>(`/api/public/organizers/${organizerId}`, {
     cache: 'no-store',
   })
 
-  return {
-    organizer: extractEntity(response, ['organizer'], normalizeOrganizer),
-    publishedEvents: extractList(response, ['publishedEvents', 'events'], normalizeEvent),
-  }
+  return normalizePublicOrganizerPageData(response)
 }
 
 export async function createPublicOrganizerBooking(
