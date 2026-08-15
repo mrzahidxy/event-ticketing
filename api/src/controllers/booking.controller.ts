@@ -1,6 +1,7 @@
 import { Response } from 'express';
 
 import { bookingService } from '../services/booking.service';
+import { paymentService } from '../services/payment.service';
 import type { AuthenticatedRequest } from '../types/http';
 import type {
   CreatePublicBookingInput,
@@ -15,36 +16,18 @@ const formatDate = (value: Date | string | null | undefined) =>
 export const bookingController = {
   createPublicSubmission: async (req: AuthenticatedRequest, res: Response) => {
     const { organizerId } = req.params as { organizerId?: string };
-    const booking = await bookingService.createPublicSubmission(
+    const result = await paymentService.createPublicTicketCheckoutSession(
+      organizerId ?? '',
       req.body as CreatePublicBookingInput,
-      req.user,
-      organizerId
+      req.user
     );
     res.status(201).json(
       successResponse(
         {
-          id: booking.id,
-          fullName: booking.fullName,
-          email: booking.email,
-          phone: booking.phone,
-          eventId: booking.eventId,
-          eventName: booking.eventName,
-          ticketTierId: booking.ticketTierId,
-          tierName: booking.tierName,
-          userId: booking.userId,
-          bookingDate: formatDate(booking.bookingDate),
-          bookingTime: booking.bookingTime,
-          quantity: booking.quantity,
-          guestCount: booking.guestCount,
-          notes: booking.notes,
-          totalAmount: booking.totalAmount,
-          totalPrice: booking.totalPrice,
-          currency: booking.currency,
-          status: booking.status,
-          createdAt: booking.createdAt,
-          updatedAt: booking.updatedAt,
+          booking: result.booking,
+          checkoutSession: result.checkoutSession,
         },
-        { message: 'Booking submitted successfully' }
+        { message: 'Booking created. Redirecting to Stripe checkout.' }
       )
     );
   },
@@ -58,6 +41,10 @@ export const bookingController = {
       status: query.status,
       search: query.search,
       eventName: query.eventName,
+      createdFrom: query.createdFrom,
+      createdTo: query.createdTo,
+      updatedFrom: query.updatedFrom,
+      updatedTo: query.updatedTo,
       checkInFrom: query.checkInFrom,
       checkInTo: query.checkInTo,
       checkOutFrom: query.checkOutFrom,
@@ -83,9 +70,9 @@ export const bookingController = {
           eventName: booking.eventName,
           bookingDate: formatDate(booking.bookingDate),
           bookingTime: booking.bookingTime,
-          checkIn: formatDate(booking.checkIn),
-          checkOut: formatDate(booking.checkOut),
+          quantity: booking.quantity,
           totalPrice: booking.totalPrice,
+          currency: booking.currency,
           status: booking.status,
           createdAt: booking.createdAt,
         })),
@@ -101,7 +88,7 @@ export const bookingController = {
   },
 
   create: async (req: AuthenticatedRequest, res: Response) => {
-    const booking = await bookingService.create(req.body, req.user!);
+    const booking = await bookingService.createProtectedBooking(req.body, req.user!);
     res.status(201).json(
       successResponse(
         {

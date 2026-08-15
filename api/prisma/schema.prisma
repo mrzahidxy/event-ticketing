@@ -187,6 +187,16 @@ model Payment {
   @@index([status])
 }
 
+model StripeWebhookEvent {
+  id                Int      @id @default(autoincrement())
+  stripeEventId     String   @unique
+  eventType         String
+  stripeSessionId   String?
+  stripePaymentIntentId String?
+  processedAt       DateTime @default(now())
+  createdAt         DateTime @default(now())
+}
+
 model Ticket {
   id           String @id @default(uuid()) @db.Uuid
   bookingId    Int
@@ -252,6 +262,8 @@ enum PaymentStatus {
   PENDING
   SUCCEEDED
   FAILED
+  CANCELLED
+  EXPIRED
 }
 
 enum TicketStatus {

@@ -79,6 +79,14 @@ type PublicEventDetail = Prisma.EventGetPayload<{
     };
   };
 }>;
+type PublicTicketTierDetail = Prisma.TicketTierGetPayload<{
+  select: typeof PUBLIC_TICKET_TIER_SELECT;
+}> & {
+  soldOut: boolean;
+};
+type PublicEventResponse = Omit<PublicEventDetail, 'ticketTiers'> & {
+  ticketTiers: PublicTicketTierDetail[];
+};
 type OrganizerStatusDetail = {
   id: string;
   name: string;
@@ -104,8 +112,8 @@ type PublicOrganizerLanding = {
     createdAt: Date;
     updatedAt: Date;
   };
-  events: PublicEventDetail[];
-  publishedEvents: PublicEventDetail[];
+  events: PublicEventResponse[];
+  publishedEvents: PublicEventResponse[];
 };
 
 const getOrganizerScope = async (
@@ -196,6 +204,14 @@ const ensureUniqueEventName = async (
   }
 };
 
+const toPublicEventResponse = (event: PublicEventDetail): PublicEventResponse => ({
+  ...event,
+  ticketTiers: event.ticketTiers.map((tier) => ({
+    ...tier,
+    soldOut: tier.quantityTotal !== null && tier.quantitySold >= tier.quantityTotal,
+  })),
+});
+
 export const organizerService = {
   create: async (
     input: { name: string; ownerId?: number },
@@ -274,7 +290,6 @@ export const organizerService = {
                 AND: [
                   { OR: [{ salesStartAt: null }, { salesStartAt: { lte: now } }] },
                   { OR: [{ salesEndAt: null }, { salesEndAt: { gte: now } }] },
-                  { OR: [{ quantityTotal: null }, { quantitySold: { lt: prisma.ticketTier.fields.quantityTotal } }] },
                 ],
               },
               orderBy: { id: 'asc' },
@@ -285,14 +300,18 @@ export const organizerService = {
       },
     });
 
-    return organizers.map(({ events, isSuspended, ...rest }) => ({
-      organizer: {
-        ...rest,
-        status: isSuspended ? 'SUSPENDED' : 'ACTIVE',
-      },
-      events,
-      publishedEvents: events,
-    }));
+    return organizers.map(({ events, isSuspended, ...rest }) => {
+      const publicEvents = events.map(toPublicEventResponse);
+
+      return {
+        organizer: {
+          ...rest,
+          status: isSuspended ? 'SUSPENDED' : 'ACTIVE',
+        },
+        events: publicEvents,
+        publishedEvents: publicEvents,
+      };
+    });
   },
 
   getPublicById: async (organizerId: string): Promise<PublicOrganizerLanding> => {
@@ -316,7 +335,6 @@ export const organizerService = {
                 AND: [
                   { OR: [{ salesStartAt: null }, { salesStartAt: { lte: now } }] },
                   { OR: [{ salesEndAt: null }, { salesEndAt: { gte: now } }] },
-                  { OR: [{ quantityTotal: null }, { quantitySold: { lt: prisma.ticketTier.fields.quantityTotal } }] },
                 ],
               },
               orderBy: { id: 'asc' },
@@ -337,13 +355,15 @@ export const organizerService = {
 
     const { events, isSuspended, ...rest } = organizer;
 
+    const publicEvents = events.map(toPublicEventResponse);
+
     return {
       organizer: {
         ...rest,
         status: isSuspended ? 'SUSPENDED' : 'ACTIVE',
       },
-      events,
-      publishedEvents: events,
+      events: publicEvents,
+      publishedEvents: publicEvents,
     };
   },
 

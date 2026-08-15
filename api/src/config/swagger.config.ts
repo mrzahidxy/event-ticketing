@@ -237,42 +237,42 @@ const bookingPaths: OAS3Definition['paths'] = {
         },
         {
           in: 'query',
-          name: 'checkInFrom',
+          name: 'createdFrom',
           schema: {
             type: 'string',
             format: 'date',
           },
-          description: 'Filter bookings with check-in date from this date onwards',
+          description: 'Filter bookings created from this date onwards',
           example: '2024-01-01',
         },
         {
           in: 'query',
-          name: 'checkInTo',
+          name: 'createdTo',
           schema: {
             type: 'string',
             format: 'date',
           },
-          description: 'Filter bookings with check-in date up to this date',
+          description: 'Filter bookings created up to this date',
           example: '2024-12-31',
         },
         {
           in: 'query',
-          name: 'checkOutFrom',
+          name: 'updatedFrom',
           schema: {
             type: 'string',
             format: 'date',
           },
-          description: 'Filter bookings with check-out date from this date onwards',
+          description: 'Filter bookings updated from this date onwards',
           example: '2024-01-01',
         },
         {
           in: 'query',
-          name: 'checkOutTo',
+          name: 'updatedTo',
           schema: {
             type: 'string',
             format: 'date',
           },
-          description: 'Filter bookings with check-out date up to this date',
+          description: 'Filter bookings updated up to this date',
           example: '2024-12-31',
         },
       ],
@@ -300,19 +300,32 @@ const bookingPaths: OAS3Definition['paths'] = {
           'application/json': {
             schema: {
               type: 'object',
-              required: ['eventId', 'checkIn', 'checkOut'],
+              required: ['eventId', 'ticketTierId', 'quantity'],
               properties: {
                 eventId: {
                   type: 'string',
                   format: 'uuid',
                 },
-                checkIn: {
-                  type: 'string',
-                  format: 'date',
+                ticketTierId: {
+                  type: 'integer',
+                  minimum: 1,
                 },
-                checkOut: {
+                quantity: {
+                  type: 'integer',
+                  minimum: 1,
+                },
+                fullName: {
                   type: 'string',
-                  format: 'date',
+                },
+                email: {
+                  type: 'string',
+                  format: 'email',
+                },
+                phone: {
+                  type: 'string',
+                },
+                notes: {
+                  type: 'string',
                 },
               },
             },
@@ -387,13 +400,10 @@ const bookingPaths: OAS3Definition['paths'] = {
             schema: {
               type: 'object',
               properties: {
-                checkIn: {
+                status: {
                   type: 'string',
-                  format: 'date',
-                },
-                checkOut: {
-                  type: 'string',
-                  format: 'date',
+                  enum: ['PENDING', 'CANCELLED'],
+                  description: 'CONFIRMED is reserved for Stripe webhook reconciliation',
                 },
               },
             },

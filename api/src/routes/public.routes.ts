@@ -1,8 +1,9 @@
+import { Role } from '@prisma/client';
 import { Router } from 'express';
 
 import { organizerController } from '../controllers/organizer.controller';
 import { bookingController } from '../controllers/booking.controller';
-import { optionalAuth } from '../middleware/auth.middleware';
+import { requireAuth } from '../middleware/auth.middleware';
 import { validateRequest } from '../middleware/validation.middleware';
 import { organizerIdParamSchema } from '../schemas/organizer.schema';
 import { createPublicBookingSchema } from '../schemas/booking.schema';
@@ -19,7 +20,7 @@ router.get(
 
 router.post(
   '/organizers/:organizerId/bookings',
-  optionalAuth(),
+  requireAuth([Role.USER]),
   validateRequest(organizerIdParamSchema, 'params'),
   validateRequest(createPublicBookingSchema),
   bookingController.createPublicSubmission

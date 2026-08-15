@@ -55,7 +55,34 @@ const bookingListInclude = {
 } as const;
 
 const bookingDetailInclude = {
-  payments: true,
+  payments: {
+    orderBy: { createdAt: 'desc' },
+  },
+  items: {
+    select: {
+      id: true,
+      ticketTierId: true,
+      tierNameSnapshot: true,
+      unitPriceSnapshot: true,
+      quantity: true,
+      lineTotal: true,
+    },
+  },
+  tickets: {
+    select: {
+      id: true,
+      code: true,
+      qrPayload: true,
+      attendeeName: true,
+      attendeeEmail: true,
+      status: true,
+      issuedAt: true,
+      checkedInAt: true,
+      voidedAt: true,
+      ticketTierId: true,
+    },
+    orderBy: { issuedAt: 'asc' },
+  },
   event: {
     select: {
       id: true,
@@ -176,24 +203,36 @@ const normalizeFilters = (filters?: Partial<ListBookingsQuery>): Partial<ListBoo
     }
   }
 
-  const checkInFrom = parseDate((filters as { checkInFrom?: unknown }).checkInFrom);
-  if (checkInFrom) {
-    normalized.checkInFrom = checkInFrom;
+  const createdFrom = parseDate(
+    (filters as { createdFrom?: unknown; checkInFrom?: unknown }).createdFrom ??
+      (filters as { checkInFrom?: unknown }).checkInFrom
+  );
+  if (createdFrom) {
+    (normalized as ListBookingsFilters & { createdFrom?: Date }).createdFrom = createdFrom;
   }
 
-  const checkInTo = parseDate((filters as { checkInTo?: unknown }).checkInTo);
-  if (checkInTo) {
-    normalized.checkInTo = checkInTo;
+  const createdTo = parseDate(
+    (filters as { createdTo?: unknown; checkInTo?: unknown }).createdTo ??
+      (filters as { checkInTo?: unknown }).checkInTo
+  );
+  if (createdTo) {
+    (normalized as ListBookingsFilters & { createdTo?: Date }).createdTo = createdTo;
   }
 
-  const checkOutFrom = parseDate((filters as { checkOutFrom?: unknown }).checkOutFrom);
-  if (checkOutFrom) {
-    normalized.checkOutFrom = checkOutFrom;
+  const updatedFrom = parseDate(
+    (filters as { updatedFrom?: unknown; checkOutFrom?: unknown }).updatedFrom ??
+      (filters as { checkOutFrom?: unknown }).checkOutFrom
+  );
+  if (updatedFrom) {
+    (normalized as ListBookingsFilters & { updatedFrom?: Date }).updatedFrom = updatedFrom;
   }
 
-  const checkOutTo = parseDate((filters as { checkOutTo?: unknown }).checkOutTo);
-  if (checkOutTo) {
-    normalized.checkOutTo = checkOutTo;
+  const updatedTo = parseDate(
+    (filters as { updatedTo?: unknown; checkOutTo?: unknown }).updatedTo ??
+      (filters as { checkOutTo?: unknown }).checkOutTo
+  );
+  if (updatedTo) {
+    (normalized as ListBookingsFilters & { updatedTo?: Date }).updatedTo = updatedTo;
   }
 
   return Object.keys(normalized).length > 0 ? normalized : undefined;
@@ -407,9 +446,9 @@ type UserBookingHistoryItem = {
   eventName: string | null;
   bookingDate: Date | null;
   bookingTime: string | null;
-  checkIn: Date | null;
-  checkOut: Date | null;
+  quantity: number;
   totalPrice: Prisma.Decimal | null;
+  currency: string;
   status: BookingStatus;
   createdAt: Date;
 };
@@ -504,11 +543,15 @@ const invalidateBookingCollections = async (userId: number) => {
 };
 
 export const bookingService = {
-  createPublicSubmission: async (
+  createPublicTicketBooking: async (
     input: CreatePublicBookingInput,
     actor?: AuthenticatedUser | null,
     organizerId?: string
   ): Promise<PublicBookingSubmission> => {
+    if (!actor || actor.role !== Role.USER) {
+      throw new HttpError(401, 'Sign in with a user account to continue to ticket checkout');
+    }
+
     const bookingDate = new Date(`${input.bookingDate}T00:00:00.000Z`);
 
     if (Number.isNaN(bookingDate.getTime())) {
@@ -526,15 +569,6 @@ export const bookingService = {
 
     if (organizerId && eventScope.organizerId !== organizerId) {
       throw new HttpError(404, 'Event not found for this organizer');
-    }
-
-    const hasGuestDetails =
-      Boolean(input.fullName?.trim()) &&
-      Boolean(input.email?.trim()) &&
-      Boolean(input.phone?.trim());
-
-    if (!actor && !hasGuestDetails) {
-      throw new HttpError(400, 'Guest bookings require full name, email, and phone');
     }
 
     const fullName = input.fullName?.trim() || actor?.name?.trim() || actor?.email?.trim();
@@ -622,20 +656,25 @@ export const bookingService = {
           });
         }
 
-        if (normalizedFilters.checkInFrom || normalizedFilters.checkInTo) {
+        const createdFrom = (normalizedFilters as ListBookingsFilters & { createdFrom?: Date }).createdFrom;
+        const createdTo = (normalizedFilters as ListBookingsFilters & { createdTo?: Date }).createdTo;
+        const updatedFrom = (normalizedFilters as ListBookingsFilters & { updatedFrom?: Date }).updatedFrom;
+        const updatedTo = (normalizedFilters as ListBookingsFilters & { updatedTo?: Date }).updatedTo;
+
+        if (createdFrom || createdTo) {
           whereClauses.push({
             createdAt: {
-              ...(normalizedFilters.checkInFrom ? { gte: normalizedFilters.checkInFrom } : {}),
-              ...(normalizedFilters.checkInTo ? { lte: normalizedFilters.checkInTo } : {}),
+              ...(createdFrom ? { gte: createdFrom } : {}),
+              ...(createdTo ? { lte: createdTo } : {}),
             },
           });
         }
 
-        if (normalizedFilters.checkOutFrom || normalizedFilters.checkOutTo) {
+        if (updatedFrom || updatedTo) {
           whereClauses.push({
             updatedAt: {
-              ...(normalizedFilters.checkOutFrom ? { gte: normalizedFilters.checkOutFrom } : {}),
-              ...(normalizedFilters.checkOutTo ? { lte: normalizedFilters.checkOutTo } : {}),
+              ...(updatedFrom ? { gte: updatedFrom } : {}),
+              ...(updatedTo ? { lte: updatedTo } : {}),
             },
           });
         }
@@ -722,8 +761,14 @@ export const bookingService = {
           id: true,
           eventId: true,
           totalAmount: true,
+          currency: true,
           status: true,
           createdAt: true,
+          items: {
+            select: {
+              quantity: true,
+            },
+          },
           event: {
             select: {
               name: true,
@@ -746,9 +791,9 @@ export const bookingService = {
         eventName: booking.event?.name ?? null,
         bookingDate: booking.createdAt,
         bookingTime: null,
-        checkIn: null,
-        checkOut: null,
+        quantity: booking.items.reduce((sum, item) => sum + item.quantity, 0),
         totalPrice: booking.totalAmount,
+        currency: booking.currency,
         status: booking.status,
         createdAt: booking.createdAt,
       })),
@@ -801,21 +846,7 @@ export const bookingService = {
     return booking;
   },
 
-  create: async (input: CreateBookingInput, user: AuthenticatedUser) => {
-    // Validate date format and ensure checkOut is after checkIn
-    const checkInDate = new Date(input.checkIn);
-    const checkOutDate = new Date(input.checkOut);
-
-    if (isNaN(checkInDate.getTime())) {
-      throw new HttpError(400, 'Invalid check-in date format. Use YYYY-MM-DD.');
-    }
-    if (isNaN(checkOutDate.getTime())) {
-      throw new HttpError(400, 'Invalid check-out date format. Use YYYY-MM-DD.');
-    }
-    if (checkOutDate <= checkInDate) {
-      throw new HttpError(400, 'Check-out date must be after check-in date.');
-    }
-
+  createProtectedBooking: async (input: CreateBookingInput, user: AuthenticatedUser) => {
     const event = await prisma.event.findUnique({
       where: { id: input.eventId },
       select: {
@@ -846,15 +877,19 @@ export const bookingService = {
       throw new HttpError(403, 'You are not allowed to book an unpublished event');
     }
 
+    const fullName = input.fullName?.trim() || user.name?.trim() || user.email;
+    const email = user.role === Role.USER ? user.email : input.email?.trim() || user.email;
+    const phone = input.phone?.trim() || null;
+
     const { booking } = await createBookingWithTier({
       eventId: input.eventId,
       ticketTierId: input.ticketTierId,
       quantity: input.quantity,
       userId: user.id,
-      fullName: user.name?.trim() || user.email,
-      email: user.email,
-      phone: null,
-      notes: `Requested schedule ${input.checkIn} to ${input.checkOut}`,
+      fullName,
+      email,
+      phone,
+      notes: input.notes ?? null,
       requirePublished: user.role === Role.USER,
     });
 
@@ -889,10 +924,6 @@ export const bookingService = {
 
     const updateData: Prisma.BookingUpdateInput = {};
 
-    if (input.checkIn || input.checkOut) {
-      throw new HttpError(400, 'Check-in/check-out updates are not supported for this booking model');
-    }
-
     if (input.status) {
       updateData.status = input.status;
     }
@@ -904,7 +935,6 @@ export const bookingService = {
     const booking = await prisma.$transaction(async (tx) => {
       if (input.status === BookingStatus.CANCELLED) {
         const releasedInventory = await releaseBookingInventoryReservation(tx, bookingId);
-
         updateData.cancelledAt = existing.cancelledAt ?? (releasedInventory ? new Date() : existing.cancelledAt);
       }
 

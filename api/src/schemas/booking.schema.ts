@@ -1,29 +1,40 @@
 import { BookingStatus } from '@prisma/client';
 import { z } from 'zod';
 
-export const createBookingSchema = z
-  .object({
-    eventId: z.string().uuid('Event ID must be a valid UUID'),
-    ticketTierId: z.coerce.number().int().positive('Ticket tier ID must be a positive integer'),
-    quantity: z.coerce.number().int().positive('Quantity must be at least 1'),
-    checkIn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Check-in must be in YYYY-MM-DD format'),
-    checkOut: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Check-out must be in YYYY-MM-DD format'),
-  })
-  .refine(
-    (data) => {
-      const checkInDate = new Date(data.checkIn);
-      const checkOutDate = new Date(data.checkOut);
-      return checkOutDate > checkInDate;
-    },
-    {
-      message: 'Check-out date must be after check-in date',
-      path: ['checkOut'],
-    }
-  );
+export const createBookingSchema = z.object({
+  eventId: z.string().uuid('Event ID must be a valid UUID'),
+  ticketTierId: z.coerce.number().int().positive('Ticket tier ID must be a positive integer'),
+  quantity: z.coerce.number().int().positive('Quantity must be at least 1'),
+  fullName: z.preprocess(
+    (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+    z.string().trim().min(1, 'Full name is required').max(100, 'Full name is too long').optional()
+  ),
+  email: z.preprocess(
+    (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+    z.string().trim().email('A valid email address is required').optional()
+  ),
+  phone: z.preprocess(
+    (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+    z
+      .string()
+      .trim()
+      .regex(
+        /^[0-9+\-()\s]{7,24}$/,
+        'Phone number must be 7-24 characters and contain only digits or common phone symbols'
+      )
+      .optional()
+  ),
+  notes: z.preprocess(
+    (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+    z.string().trim().max(1000, 'Notes must be 1000 characters or fewer').optional()
+  ),
+});
 
 export const createPublicBookingSchema = z.object({
   eventId: z.string().uuid('Event ID must be a valid UUID'),
   ticketTierId: z.coerce.number().int().positive('Ticket tier ID must be a positive integer'),
+  successUrl: z.string().url('Success URL must be a valid URL'),
+  cancelUrl: z.string().url('Cancel URL must be a valid URL'),
   fullName: z.preprocess(
     (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
     z.string().trim().min(1, 'Full name is required').max(100, 'Full name is too long').optional()
@@ -66,24 +77,8 @@ export const createPublicBookingSchema = z.object({
 
 export const updateBookingSchema = z
   .object({
-    checkIn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Check-in must be in YYYY-MM-DD format').optional(),
-    checkOut: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Check-out must be in YYYY-MM-DD format').optional(),
     status: z.nativeEnum(BookingStatus).optional(),
   })
-  .refine(
-    (data) => {
-      if (!data.checkIn || !data.checkOut) {
-        return true;
-      }
-      const checkInDate = new Date(data.checkIn);
-      const checkOutDate = new Date(data.checkOut);
-      return checkOutDate > checkInDate;
-    },
-    {
-      message: 'Check-out date must be after check-in date',
-      path: ['checkOut'],
-    }
-  )
   .superRefine((data, ctx) => {
     if (data.status === BookingStatus.CONFIRMED) {
       ctx.addIssue({
@@ -109,6 +104,10 @@ export const listBookingsQuerySchema = z.object({
     z.string().trim().min(1, 'Search term is too short').max(100, 'Search term is too long').optional()
   ),
   eventName: z.string().optional(),
+  createdFrom: z.coerce.date().optional(),
+  createdTo: z.coerce.date().optional(),
+  updatedFrom: z.coerce.date().optional(),
+  updatedTo: z.coerce.date().optional(),
   checkInFrom: z.coerce.date().optional(),
   checkInTo: z.coerce.date().optional(),
   checkOutFrom: z.coerce.date().optional(),
