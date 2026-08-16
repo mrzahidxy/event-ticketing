@@ -21,7 +21,7 @@ export function getDefaultRedirectForRole(role?: string | null): Route {
   }
 
   if (normalized === 'GUEST') {
-    return authRoutes.signInPath as Route
+    return authRoutes.noAccessPath as Route
   }
 
   return authRoutes.noAccessPath as Route

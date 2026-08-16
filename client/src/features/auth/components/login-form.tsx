@@ -7,7 +7,7 @@ import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import type { z } from 'zod'
 
-import { getDefaultRedirectForRole } from '@/auth/routes'
+import { authRoutes, getDefaultRedirectForRole } from '@/auth/routes'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/ui/spinner'
@@ -43,10 +43,13 @@ export function LoginForm({ className }: LoginFormProps) {
     }
 
     const session = await getSession()
-    const destination = getDefaultRedirectForRole(session?.user?.role)
+    const destination = session?.user?.role
+      ? getDefaultRedirectForRole(session.user.role)
+      : authRoutes.userHome
 
     toast.success('Welcome back!')
     router.replace(destination)
+    router.refresh()
   })
 
   const isSubmitting = form.formState.isSubmitting
