@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto';
 
 import Stripe from 'stripe';
 
-import { BookingStatus, PaymentStatus, Prisma, Role, TicketStatus } from '@prisma/client';
+import { BookingStatus, PaymentStatus, Prisma, TicketStatus } from '@prisma/client';
 
 import { bookingService, releaseBookingInventoryReservation } from './booking.service';
 import { CreatePublicBookingInput } from '../schemas/booking.schema';
@@ -214,6 +214,14 @@ const finalizeTicketBookingPayment = async (event: Stripe.Event, session: Stripe
       throw new HttpError(404, 'Booking not found for ticket-payment webhook');
     }
 
+    const expectedAmount = Math.round(Number(booking.totalAmount) * 100);
+    if (
+      session.amount_total !== expectedAmount ||
+      session.currency?.toLowerCase() !== booking.currency.toLowerCase()
+    ) {
+      throw new HttpError(400, 'Stripe payment amount or currency does not match the booking');
+    }
+
     const expectedTicketCount = booking.items.reduce((sum, item) => sum + item.quantity, 0);
     const existingPayment = booking.payments[0];
 
@@ -417,6 +425,10 @@ const createCheckoutSessionForBooking = async (
           name: true,
         },
       },
+      payments: {
+        where: { status: PaymentStatus.PENDING },
+        select: { id: true },
+      },
     },
   });
 
@@ -424,7 +436,7 @@ const createCheckoutSessionForBooking = async (
     throw new HttpError(404, 'Booking not found for payment');
   }
 
-  if (user.role !== Role.ADMIN && booking.userId !== user.id) {
+  if (booking.userId !== user.id) {
     throw new HttpError(403, 'You are not allowed to pay for this booking');
   }
 
@@ -434,6 +446,10 @@ const createCheckoutSessionForBooking = async (
 
   if (booking.status !== BookingStatus.PENDING) {
     throw new HttpError(400, 'Only pending bookings can be paid');
+  }
+
+  if (booking.payments.length > 0) {
+    throw new HttpError(409, 'This booking already has an active checkout session');
   }
 
   if (booking.totalAmount.lte(0)) {
@@ -476,7 +492,7 @@ export const paymentService = {
   createPublicTicketCheckoutSession: async (
     organizerId: string,
     input: CreatePublicBookingInput,
-    user?: AuthenticatedUser | null
+    user: AuthenticatedUser
   ) => {
     const successUrl = assertAllowedCheckoutRedirectUrl(input.successUrl, 'successUrl');
     const cancelUrl = assertAllowedCheckoutRedirectUrl(input.cancelUrl, 'cancelUrl');
@@ -493,7 +509,7 @@ export const paymentService = {
         bookingSubmission.id,
         successUrl.toString(),
         cancelUrl.toString(),
-        user!
+        user
       );
 
       sessionId = checkoutSession.id;

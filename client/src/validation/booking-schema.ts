@@ -205,35 +205,7 @@ const publicOrganizerBookingBaseSchema = z.object({
     .transform((value) => value ?? ''),
 })
 
-export const publicOrganizerBookingSchema = publicOrganizerBookingBaseSchema
-
-export const guestPublicOrganizerBookingSchema = publicOrganizerBookingBaseSchema.superRefine((data, ctx) => {
-  if (!data.fullName?.trim()) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['fullName'],
-      message: 'Full name is required',
-    })
-  }
-
-  if (!data.email?.trim()) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['email'],
-      message: 'A valid email address is required',
-    })
-  }
-
-  if (!data.phone?.trim()) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['phone'],
-      message: 'A valid phone number is required',
-    })
-  }
-})
-
-export const authenticatedPublicOrganizerBookingSchema = publicOrganizerBookingBaseSchema.superRefine((data, ctx) => {
+export const publicOrganizerBookingSchema = publicOrganizerBookingBaseSchema.superRefine((data, ctx) => {
   if (!data.email?.trim()) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,

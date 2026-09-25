@@ -19,7 +19,7 @@ export const bookingController = {
     const result = await paymentService.createPublicTicketCheckoutSession(
       organizerId ?? '',
       req.body as CreatePublicBookingInput,
-      req.user
+      req.user!
     );
     res.status(201).json(
       successResponse(

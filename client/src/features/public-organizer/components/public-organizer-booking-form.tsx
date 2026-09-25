@@ -20,14 +20,10 @@ import { Spinner } from '@/components/ui/spinner'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import { createPublicOrganizerBooking } from '@/features/public-organizer/api/public-organizer-client'
-import {
-  authenticatedPublicOrganizerBookingSchema,
-  publicOrganizerBookingSchema,
-  guestPublicOrganizerBookingSchema,
-} from '@/validation/booking-schema'
+import { publicOrganizerBookingSchema } from '@/validation/booking-schema'
 import type { Event } from '@/types/domain'
 
-type GuestFormValues = z.infer<typeof publicOrganizerBookingSchema>
+type BookingFormValues = z.infer<typeof publicOrganizerBookingSchema>
 
 type PublicOrganizerBookingFormProps = {
   className?: string
@@ -46,11 +42,7 @@ export function PublicOrganizerBookingForm({
 }: PublicOrganizerBookingFormProps) {
   const { data: session, status } = useSession()
   const isAuthenticated = status === 'authenticated' && Boolean(session?.user?.email)
-  const validationSchema = isAuthenticated
-    ? authenticatedPublicOrganizerBookingSchema
-    : guestPublicOrganizerBookingSchema
-
-  const form = useForm<GuestFormValues>({
+  const form = useForm<BookingFormValues>({
     resolver: zodResolver(publicOrganizerBookingSchema),
     defaultValues: {
       bookingDate: '',
@@ -127,41 +119,30 @@ export function PublicOrganizerBookingForm({
   }, [form, isAuthenticated, session?.user?.email, session?.user?.name])
 
   const mutation = useMutation({
-    mutationFn: async (values: GuestFormValues) => {
+    mutationFn: async (values: BookingFormValues) => {
       return createPublicOrganizerBooking(organizerId, values)
     },
-    onSuccess: () => {
-      toast.success('Booking request submitted')
-      form.reset({
-        bookingDate: '',
-        bookingTime: '',
-        email: session?.user?.email ?? '',
-        eventId: initialEventId ?? events[0]?.id ?? '',
-        fullName: session?.user?.name ?? '',
-        guestCount: 1,
-        notes: '',
-        phone: '',
-        quantity: 1,
-        ticketTierId: events.find((event) => event.id === (initialEventId ?? events[0]?.id))?.ticketTiers?.[0]?.id ?? 0,
-      })
+    onSuccess: ({ checkoutUrl }) => {
+      window.location.assign(checkoutUrl)
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'Booking request failed')
     },
   })
 
-  const canSubmit = events.length > 0 && Boolean(selectedTier) && !mutation.isPending && status !== 'loading'
+  const canSubmit =
+    isAuthenticated && events.length > 0 && Boolean(selectedTier) && !mutation.isPending
 
   const handleSubmit = form.handleSubmit((values) => {
     form.clearErrors()
 
-    const parsed = validationSchema.safeParse(values)
+    const parsed = publicOrganizerBookingSchema.safeParse(values)
 
     if (!parsed.success) {
       parsed.error.issues.forEach((issue) => {
         const fieldName = issue.path[0]
         if (typeof fieldName === 'string') {
-          form.setError(fieldName as keyof GuestFormValues, {
+          form.setError(fieldName as keyof BookingFormValues, {
             message: issue.message,
             type: 'manual',
           })
@@ -191,7 +172,7 @@ export function PublicOrganizerBookingForm({
         </p>
       </CardHeader>
       <CardContent className="space-y-5">
-        {status === 'authenticated' ? (
+        {isAuthenticated ? (
           <Alert variant="default" className="border-teal-200 bg-teal-50 text-teal-900">
             <AlertTitle className="flex items-center gap-2 text-sm">
               <UserCircle2 className="h-4 w-4" />
@@ -205,10 +186,10 @@ export function PublicOrganizerBookingForm({
           <Alert variant="default" className="border-slate-200 bg-slate-50 text-slate-700">
             <AlertTitle className="flex items-center gap-2 text-sm">
               <UserCircle2 className="h-4 w-4" />
-              Guest booking
+              Sign in required
             </AlertTitle>
             <AlertDescription>
-              Enter your contact details so the organizer can confirm the reservation.
+              Sign in with a user account before continuing to payment.
             </AlertDescription>
           </Alert>
         )}
@@ -425,18 +406,18 @@ export function PublicOrganizerBookingForm({
           <footer className="flex items-center justify-between gap-3 pt-2">
             <div className="flex items-center gap-2 text-xs text-slate-500">
               <Clock3 className="h-4 w-4" />
-              Submitted as a booking request
+              Continue to secure checkout
             </div>
             <Button type="submit" disabled={!canSubmit}>
               {mutation.isPending ? (
                 <span className="flex items-center gap-2">
                   <Spinner size="sm" />
-                  Sending...
+                  Redirecting...
                 </span>
               ) : (
                 <span className="flex items-center gap-2">
                   <Mail className="h-4 w-4" />
-                  Submit booking
+                  Continue to payment
                 </span>
               )}
             </Button>
@@ -445,7 +426,7 @@ export function PublicOrganizerBookingForm({
 
         <div className="flex items-center gap-2 text-xs text-slate-400">
           <Phone className="h-4 w-4" />
-          The organizer receives the selected event, booking date, time, and guest details.
+          Payment confirmation and ticket issuance happen only after Stripe confirms payment.
         </div>
       </CardContent>
     </Card>

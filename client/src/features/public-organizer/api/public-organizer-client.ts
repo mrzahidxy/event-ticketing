@@ -5,6 +5,8 @@ import {
   normalizeBooking,
   normalizeEvent,
   normalizeOrganizer,
+  toObject,
+  unwrapData,
 } from '@/lib/api/normalizers'
 import type { PublicOrganizerBookingInput } from '@/types/booking'
 import type { Event, Organizer } from '@/types/domain'
@@ -43,13 +45,28 @@ export async function createPublicOrganizerBooking(
   organizerId: string,
   input: PublicOrganizerBookingInput,
 ) {
+  const returnUrl = new URL('/user/bookings', window.location.origin).toString()
   const response = await apiClient.post<unknown>(
     `/api/public/organizers/${organizerId}/bookings`,
-    input,
+    {
+      ...input,
+      successUrl: returnUrl,
+      cancelUrl: returnUrl,
+    },
     {
       auth: true,
     },
   )
 
-  return extractEntity(response, ['booking'], normalizeBooking)
+  const checkoutSession = toObject(toObject(unwrapData(response))?.checkoutSession)
+  const checkoutUrl = checkoutSession?.url
+
+  if (typeof checkoutUrl !== 'string' || !checkoutUrl) {
+    throw new Error('Stripe did not return a checkout URL')
+  }
+
+  return {
+    booking: extractEntity(response, ['booking'], normalizeBooking),
+    checkoutUrl,
+  }
 }
