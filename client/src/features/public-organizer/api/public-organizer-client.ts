@@ -6,7 +6,7 @@ import {
   normalizeEvent,
   normalizeOrganizer,
 } from '@/lib/api/normalizers'
-import type { PublicOrganizerBookingInput } from '@/types/booking'
+import type { UserOrganizerBookingInput } from '@/types/booking'
 import type { Event, Organizer } from '@/types/domain'
 
 export type PublicOrganizerPageData = {
@@ -39,9 +39,9 @@ export async function getPublicOrganizerPage(organizerId: string): Promise<Publi
   return normalizePublicOrganizerPageData(response)
 }
 
-export async function createPublicOrganizerBooking(
+export async function createUserOrganizerBooking(
   organizerId: string,
-  input: PublicOrganizerBookingInput,
+  input: UserOrganizerBookingInput,
 ) {
   const response = await apiClient.post<unknown>(
     `/api/public/organizers/${organizerId}/bookings`,
