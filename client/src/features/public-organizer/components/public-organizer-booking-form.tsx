@@ -9,10 +9,9 @@ import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import type { z } from 'zod'
-import { ArrowRight, CalendarDays, Mail, Sparkles, UserCircle2 } from 'lucide-react'
+import { ArrowRight, Mail, UserCircle2 } from 'lucide-react'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { FormField } from '@/components/ui/form-field'
@@ -35,7 +34,6 @@ type UserOrganizerBookingFormProps = {
   events: Event[]
   initialEventId?: string
   organizerId: string
-  organizerName: string
 }
 
 export function UserOrganizerBookingForm({
@@ -43,7 +41,6 @@ export function UserOrganizerBookingForm({
   events,
   initialEventId,
   organizerId,
-  organizerName,
 }: UserOrganizerBookingFormProps) {
   const { data: session, status } = useSession()
   const isAuthenticated = status === 'authenticated' && Boolean(session?.user?.email)
@@ -129,19 +126,13 @@ export function UserOrganizerBookingForm({
     mutationFn: async (values: UserOrganizerBookingFormValues) => {
       return createUserOrganizerBooking(organizerId, values)
     },
-    onSuccess: () => {
-      toast.success('Booking request submitted')
-      form.reset({
-        bookingDate: '',
-        bookingTime: '',
-        email: session?.user?.email ?? '',
-        eventId: initialEventId ?? events[0]?.id ?? '',
-        fullName: session?.user?.name ?? '',
-        notes: '',
-        phone: '',
-        quantity: 1,
-        ticketTierId: events.find((event) => event.id === (initialEventId ?? events[0]?.id))?.ticketTiers?.[0]?.id ?? 0,
-      })
+    onSuccess: (checkoutSession) => {
+      if (!checkoutSession.url) {
+        toast.error('Checkout could not be opened. Please try again.')
+        return
+      }
+
+      window.location.assign(checkoutSession.url)
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'Booking request failed')
@@ -176,19 +167,10 @@ export function UserOrganizerBookingForm({
 
   return (
     <Card id="booking-form" className={cn('border-slate-200 bg-white', className)}>
-      <CardHeader className="space-y-3 p-5 sm:p-6">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0 space-y-1">
-            <p className="text-xs font-medium uppercase tracking-[0.22em] text-slate-500">Booking</p>
-            <CardTitle className="text-2xl">Reserve tickets</CardTitle>
-          </div>
-          <Sparkles className="h-5 w-5 text-teal-500" />
-        </div>
-        <p className="text-sm leading-6 text-slate-600">
-          Choose an event and ticket quantity for {organizerName}.
-        </p>
+      <CardHeader className="p-4 pb-3 sm:p-5 sm:pb-3">
+        <CardTitle className="text-xl">Reserve tickets</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4 p-5 pt-0 sm:p-6 sm:pt-0">
+      <CardContent className="space-y-3 p-4 pt-0 sm:p-5 sm:pt-0">
         {status === 'authenticated' ? (
           <Alert variant="default" className="border-teal-200 bg-teal-50 text-teal-900">
             <AlertTitle className="flex items-center gap-2 text-sm">
@@ -212,17 +194,13 @@ export function UserOrganizerBookingForm({
           </Alert>
         )}
 
-        <form className="space-y-4" onSubmit={handleSubmit}>
+        <form className="space-y-3" onSubmit={handleSubmit}>
           <FormField
             label="Event"
             error={form.formState.errors.eventId?.message}
             htmlFor="user-booking-event"
             required
-            description={
-              events.length > 0
-                ? 'Select one of the published events from this organizer.'
-                : 'There are no published events available to book.'
-            }
+            description={events.length === 0 ? 'No published events are available.' : undefined}
           >
             <Select
               id="user-booking-event"
@@ -238,7 +216,7 @@ export function UserOrganizerBookingForm({
             </Select>
           </FormField>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2">
             <FormField
               label="Booking Date"
               error={form.formState.errors.bookingDate?.message}
@@ -268,17 +246,13 @@ export function UserOrganizerBookingForm({
             </FormField>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2">
             <FormField
               label="Ticket Tier"
               error={form.formState.errors.ticketTierId?.message}
               htmlFor="user-booking-ticket-tier"
               required
-              description={
-                selectedEventTiers.length
-                  ? 'Choose an available ticket tier for this event.'
-                  : 'No ticket tiers are currently available for this event.'
-              }
+              description={selectedEventTiers.length === 0 ? 'No ticket tiers are available.' : undefined}
             >
               <Select
                 id="user-booking-ticket-tier"
@@ -363,37 +337,7 @@ export function UserOrganizerBookingForm({
             </details>
           ) : null}
 
-          {selectedEvent ? (
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
-              <div className="flex items-start justify-between gap-4">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-slate-400">
-                    <CalendarDays className="h-4 w-4" />
-                    Selected event
-                  </div>
-                  <p className="text-lg font-semibold text-slate-900">{selectedEvent.name}</p>
-                  <p className="text-sm leading-6 text-slate-600">
-                    {selectedEvent.description || 'More details will be shared by the organizer.'}
-                  </p>
-                </div>
-                <div className="flex flex-col items-end gap-2">
-                  <Badge variant="outline">Published</Badge>
-                  {selectedTier ? (
-                    <span className="text-right text-sm font-semibold text-slate-900">
-                      {selectedTier.name}: {selectedTier.price.toLocaleString('en-US', {
-                        style: 'currency',
-                        currency: selectedTier.currency.toUpperCase(),
-                      })}
-                    </span>
-                  ) : (
-                    <span className="text-sm font-semibold text-slate-500">No tiers available</span>
-                  )}
-                </div>
-              </div>
-            </div>
-          ) : null}
-
-          <footer className="border-t border-slate-100 pt-4">
+          <footer className="border-t border-slate-100 pt-3">
             {isAuthenticated ? (
               <Button type="submit" disabled={!canSubmit} className="w-full">
               {mutation.isPending ? (
