@@ -3,7 +3,6 @@ export const USER_ROLE_VALUES = [
   'OWNER',
   'STAFF',
   'USER',
-  'GUEST',
 ] as const
 
 export type UserRole = (typeof USER_ROLE_VALUES)[number]
@@ -13,7 +12,7 @@ export type CanonicalUserRole =
   | 'OWNER'
   | 'STAFF'
   | 'USER'
-  | 'GUEST'
+  | 'UNKNOWN'
 
 export type UserStatus = 'ACTIVE' | 'INACTIVE'
 
@@ -65,7 +64,7 @@ const ROLE_PERMISSIONS: Record<CanonicalUserRole, UserPermission[]> = {
     'EVENT_UPDATE',
   ],
   USER: ['EVENT_READ'],
-  GUEST: ['EVENT_READ'],
+  UNKNOWN: [],
 }
 
 export function normalizeUserRole(role?: string | null): CanonicalUserRole {
@@ -79,19 +78,15 @@ export function normalizeUserRole(role?: string | null): CanonicalUserRole {
     return 'STAFF'
   }
 
-  if (normalized === 'GUESTS' || normalized === 'GUEST') {
-    return 'GUEST'
-  }
-
   if (normalized === 'SUPER_ADMIN' || normalized === 'ADMIN') {
     return 'ADMIN'
   }
 
-  if (normalized === 'OWNER') {
+  if (normalized === 'OWNER' || normalized === 'USER') {
     return normalized
   }
 
-  return 'GUEST'
+  return 'UNKNOWN'
 }
 
 export function isAdminRole(role?: string | null) {

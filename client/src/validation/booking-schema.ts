@@ -152,7 +152,7 @@ export const bookingCreateFormSchema = bookingFormSchema.superRefine((data, ctx)
 
 export const bookingUpdateFormSchema = bookingFormSchema
 
-const publicOrganizerBookingBaseSchema = z.object({
+const userOrganizerBookingBaseSchema = z.object({
   eventId: z.string().uuid('Event ID must be a valid UUID'),
   ticketTierId: z.coerce
     .number({ invalid_type_error: 'Ticket tier is required' })
@@ -171,11 +171,6 @@ const publicOrganizerBookingBaseSchema = z.object({
     })
     .int('Quantity must be a whole number')
     .min(1, 'Quantity must be at least 1'),
-  guestCount: z.coerce
-    .number()
-    .int('Guest count must be a whole number')
-    .min(1, 'Guest count must be at least 1')
-    .optional(),
   fullName: z
     .string()
     .trim()
@@ -205,35 +200,9 @@ const publicOrganizerBookingBaseSchema = z.object({
     .transform((value) => value ?? ''),
 })
 
-export const publicOrganizerBookingSchema = publicOrganizerBookingBaseSchema
+export const userOrganizerBookingFormSchema = userOrganizerBookingBaseSchema
 
-export const guestPublicOrganizerBookingSchema = publicOrganizerBookingBaseSchema.superRefine((data, ctx) => {
-  if (!data.fullName?.trim()) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['fullName'],
-      message: 'Full name is required',
-    })
-  }
-
-  if (!data.email?.trim()) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['email'],
-      message: 'A valid email address is required',
-    })
-  }
-
-  if (!data.phone?.trim()) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['phone'],
-      message: 'A valid phone number is required',
-    })
-  }
-})
-
-export const authenticatedPublicOrganizerBookingSchema = publicOrganizerBookingBaseSchema.superRefine((data, ctx) => {
+export const organizerBookingSubmissionSchema = userOrganizerBookingBaseSchema.superRefine((data, ctx) => {
   if (!data.email?.trim()) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
