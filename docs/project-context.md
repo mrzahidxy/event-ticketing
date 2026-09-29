@@ -2,7 +2,7 @@
 
 This repository is the base for the **Multi-Tenant Event Intelligence Platform**.
 
-The project extends an existing event-ticketing MVP where organizers manage tenant-scoped events and bookings, guests purchase tickets, staff check in tickets, and booking/check-in activity eventually feeds analytics summaries and recommendation outputs.
+The project extends an existing event-ticketing MVP where organizers manage tenant-scoped events and bookings, authenticated users purchase tickets, staff check in tickets, and booking/check-in activity eventually feeds analytics summaries and recommendation outputs.
 
 ## Current Repo Baseline
 

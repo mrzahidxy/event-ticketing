@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This service is the Next.js frontend for the Multi-Tenant Event Intelligence Platform. Keep changes aligned with the live product flows: owner event management, staff ticket check-in, guest public event browsing/booking, analytics, and recommendation display.
+This service is the Next.js frontend for the Multi-Tenant Event Intelligence Platform. Keep changes aligned with the live product flows: owner event management, staff ticket check-in, public event browsing with authenticated `USER` ticket booking, analytics, and recommendation display.
 
 ## Stack
 
@@ -29,7 +29,7 @@ This service is the Next.js frontend for the Multi-Tenant Event Intelligence Pla
 
 - Owner UI must stay scoped to the organizer the owner can manage.
 - Staff UI must expose only check-in and assigned organizer workflows.
-- Guest/public UI must show only published events.
+- Public event UI must show only published events; checkout requires an authenticated `USER` account.
 - Booking UI should not mark payments as confirmed; Stripe webhook confirmation belongs to the API.
 - Ticket/check-in UI must treat duplicate scan errors as expected user-facing states.
 - Analytics and recommendation UI should consume API/service outputs instead of deriving cross-service data in the browser.
