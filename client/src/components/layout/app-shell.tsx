@@ -37,7 +37,7 @@ export async function AppShell({ children }: AppShellProps) {
         </div>
 
         <nav className="flex-1 pt-4">
-          <NavLinks />
+            <NavLinks role={session?.user?.role ?? ''} />
         </nav>
       </aside>
 
