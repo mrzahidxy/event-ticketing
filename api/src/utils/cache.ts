@@ -89,6 +89,20 @@ class Cache {
     }
   }
 
+  async setIfNotExists(key: string, value: string, ttlSeconds: number): Promise<boolean> {
+    if (!this.isConnected || !this.client) {
+      throw new Error('Redis is unavailable');
+    }
+
+    try {
+      const result = await this.client.set(key, value, 'EX', ttlSeconds, 'NX');
+      return result === 'OK';
+    } catch (error) {
+      logger.error({ key, error }, 'Redis set-if-not-exists error');
+      throw error;
+    }
+  }
+
   async del(key: string): Promise<void> {
     if (!this.isConnected || !this.client) {
       return;
