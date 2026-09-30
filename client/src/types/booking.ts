@@ -2,6 +2,19 @@ import type { PaymentRecord } from '@/types/domain'
 
 export type BookingStatus = 'CONFIRMED' | 'PENDING' | 'CANCELLED' | 'COMPLETED'
 
+export type BookingTicket = {
+  id: string
+  code: string
+  qrPayload: string
+  attendeeName: string | null
+  attendeeEmail: string | null
+  status: 'ISSUED' | 'CHECKED_IN' | 'VOIDED' | 'CANCELLED'
+  issuedAt: string
+  checkedInAt: string | null
+  voidedAt: string | null
+  ticketTierId: number
+}
+
 export type Booking = {
   id: number
   userId: string
@@ -26,6 +39,7 @@ export type Booking = {
     name: string
   }
   payments: PaymentRecord[]
+  tickets?: BookingTicket[]
 }
 
 export type BookingInput = {
