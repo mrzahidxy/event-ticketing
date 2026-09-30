@@ -1,15 +1,9 @@
 ﻿import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import {
-  ArrowLeft,
-  ArrowRight,
-  CalendarDays,
-  Clock3,
-  Sparkles,
-  Ticket,
-} from 'lucide-react'
+import { ArrowLeft, ArrowRight, CalendarDays, MapPin } from 'lucide-react'
 
+import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -18,7 +12,7 @@ import {
 } from '@/features/public-organizer/api/public-organizer-client'
 import { UserOrganizerBookingForm } from '@/features/public-organizer/components/public-organizer-booking-form'
 import { HttpError } from '@/lib/errors'
-import { formatCurrency, formatDate, formatRelativeDate } from '@/lib/format'
+import { formatCurrency, formatDate } from '@/lib/format'
 
 type OrganizerPageProps = {
   params: Promise<{
@@ -77,93 +71,72 @@ export default async function OrganizerPage({ params, searchParams }: OrganizerP
       ? query.eventId
       : publishedEvents[0]?.id
 
-  const latestUpdatedLabel = formatRelativeDate(organizer.updatedAt)
-
   return (
-    <main className="min-h-screen bg-slate-50">
-      <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:py-6">
-        <header className="mb-5 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-slate-200 pb-4">
-          <Link
-            href="/user/bookings"
-            className={buttonVariants({ variant: 'outline', size: 'sm' })}
-          >
+    <main className="relative min-h-screen overflow-hidden bg-slate-50">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(20,184,166,0.12),_transparent_35%),radial-gradient(circle_at_bottom_right,_rgba(15,23,42,0.08),_transparent_30%)]" />
+      <div className="relative mx-auto max-w-7xl px-5 py-8 sm:px-8 sm:py-12">
+        <div className="mb-4">
+          <Link href="/organizers" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
             <ArrowLeft className="h-4 w-4" />
-            My bookings
+            Back to events
           </Link>
-          <div className="flex min-w-0 flex-1 items-center gap-3">
-            <Sparkles aria-hidden="true" className="h-5 w-5 shrink-0 text-teal-600" />
-            <div className="min-w-0">
-              <h1 className="break-words text-lg font-semibold leading-tight tracking-tight text-slate-900 sm:text-xl">
+        </div>
+        <section className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-soft">
+          <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(20,184,166,0.08),transparent_45%,rgba(15,23,42,0.03))]" />
+          <div className="relative px-6 py-10 sm:px-10 lg:px-12 lg:py-14">
+            <div className="max-w-3xl space-y-4">
+              {organizer.status === 'SUSPENDED' ? (
+                <Badge variant="warning">Suspended</Badge>
+              ) : null}
+              <h1 className="text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl">
                 {organizer.name}
               </h1>
-              <p className="text-xs text-slate-500">
-                {publishedEvents.length} {publishedEvents.length === 1 ? 'event' : 'events'}
-              </p>
             </div>
           </div>
-        </header>
+        </section>
 
-        <div className="grid items-start gap-4 lg:grid-cols-2 lg:gap-6">
-          <section id="events" className="min-w-0 space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-xl font-semibold tracking-tight text-slate-900">Events</h2>
-              <span className="flex items-center gap-1.5 text-xs text-slate-500">
-                <Clock3 aria-hidden="true" className="h-3.5 w-3.5" />
-                Updated {latestUpdatedLabel}
-              </span>
-            </div>
+        <div className="mt-8 grid gap-8 lg:grid-cols-2">
+          <section id="events" className="space-y-6">
+            <h2 className="text-2xl font-semibold tracking-tight text-slate-900">Events</h2>
 
             {publishedEvents.length === 0 ? (
               <Card className="border-dashed border-slate-300 bg-white/80">
                 <CardContent className="p-8 text-center">
-                  <p className="text-lg font-medium text-slate-900">No published events yet</p>
-                  <p className="mt-2 text-sm text-slate-500">
-                    This organizer has not published any events to book.
-                  </p>
+                  <p className="text-lg font-medium text-slate-900">No public events available yet</p>
                 </CardContent>
               </Card>
             ) : (
-              <div className="space-y-3">
-                {publishedEvents.map((event) => {
-                  const tiers = event.ticketTiers ?? []
-                  const availableTiers = tiers.filter(
-                    (tier) => tier.quantityTotal === null || tier.quantitySold < tier.quantityTotal,
-                  )
-                  const startingPrice = availableTiers.length
-                    ? Math.min(...availableTiers.map((tier) => tier.price))
-                    : null
-                  const isSelected = selectedEventId === event.id
-
-                  return (
-                    <Card
-                      key={event.id}
-                      className={`overflow-hidden bg-white transition-colors ${
-                        isSelected
-                          ? 'border-teal-400 ring-1 ring-teal-400/30'
-                          : 'border-slate-200 hover:border-teal-300'
-                      }`}
-                    >
-                      <CardHeader className="space-y-2 p-4 sm:p-5">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="min-w-0">
-                            <CardTitle className="text-lg sm:text-xl">{event.name}</CardTitle>
-                          </div>
-                          <span className="shrink-0 rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-800">
-                            {startingPrice === null ? 'Sold out' : `From ${formatCurrency(startingPrice)}`}
-                          </span>
+              <div className="grid gap-5 sm:grid-cols-2">
+                {publishedEvents.map((event) => (
+                  <Card
+                    key={event.id}
+                    className="group flex h-full flex-col overflow-hidden border-slate-200 bg-white/95 transition hover:-translate-y-1 hover:shadow-lg"
+                  >
+                    <CardHeader className="flex-1 space-y-3 p-5">
+                      <CardTitle className="text-xl">{event.name}</CardTitle>
+                      {event.description ? (
+                        <p className="text-sm leading-6 text-slate-600">{event.description}</p>
+                      ) : null}
+                      {event.eventDate || event.location ? (
+                        <div className="space-y-2 text-sm text-slate-500">
+                          {event.eventDate ? (
+                            <div className="flex items-center gap-2">
+                              <CalendarDays className="h-4 w-4" />
+                              <span>{formatDate(event.eventDate)}</span>
+                            </div>
+                          ) : null}
+                          {event.location ? (
+                            <div className="flex items-center gap-2">
+                              <MapPin className="h-4 w-4" />
+                              <span>{event.location}</span>
+                            </div>
+                          ) : null}
                         </div>
-                        <p className="line-clamp-2 text-sm leading-5 text-slate-600">
-                          {event.description || 'Event details coming soon.'}
-                        </p>
-                      </CardHeader>
-                      {tiers.length > 0 ? (
-                        <CardContent className="space-y-2 px-4 pb-3 sm:px-5">
-                          <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-slate-500">
-                            <Ticket aria-hidden="true" className="h-4 w-4" />
-                            Ticket tiers
-                          </p>
-                          <div className="space-y-1.5 rounded-xl bg-slate-50 px-3 py-2.5">
-                            {tiers.map((tier) => {
+                      ) : null}
+                      {event.ticketTiers?.length ? (
+                        <div className="space-y-2 border-t border-slate-100 pt-3">
+                          <div className="space-y-2">
+                            {event.ticketTiers.map((tier) => {
                               const availability = tier.quantityTotal === null
                                 ? 'Unlimited'
                                 : `${Math.max(tier.quantityTotal - tier.quantitySold, 0)} left`
@@ -182,27 +155,20 @@ export default async function OrganizerPage({ params, searchParams }: OrganizerP
                               )
                             })}
                           </div>
-                        </CardContent>
+                        </div>
                       ) : null}
-                      <CardContent className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-4 py-3 sm:px-5">
-                        {event.eventDate ? (
-                          <span className="flex items-center gap-2 text-xs text-slate-500">
-                            <CalendarDays aria-hidden="true" className="h-4 w-4" />
-                            {formatDate(event.eventDate)}{event.eventTime ? ` · ${event.eventTime}` : ''}
-                          </span>
-                        ) : <span />}
-                        <Link
-                          href={`/organizers/${organizer.id}?eventId=${event.id}#booking-form`}
-                          className={buttonVariants({ size: 'sm' })}
-                        >
-                          <Ticket className="h-4 w-4" />
-                          Choose tickets
-                          <ArrowRight className="h-4 w-4" />
-                        </Link>
-                      </CardContent>
-                    </Card>
-                  )
-                })}
+                    </CardHeader>
+                    <CardContent className="border-t border-slate-100 px-5 py-4">
+                      <Link
+                        href={`/organizers/${organizer.id}?eventId=${event.id}#booking-form`}
+                        className={buttonVariants({ variant: 'outline', size: 'sm' })}
+                      >
+                        <ArrowRight className="h-4 w-4" />
+                        Book
+                      </Link>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
             )}
           </section>

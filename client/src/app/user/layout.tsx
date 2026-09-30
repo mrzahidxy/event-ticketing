@@ -4,6 +4,7 @@ import type { Route } from 'next'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { UserMenu } from '@/components/layout/user-menu'
+import { buttonVariants } from '@/components/ui/button'
 import { auth } from '@/lib/auth'
 import { normalizeUserRole } from '@/types/user'
 
@@ -44,19 +45,13 @@ export default async function UserLayout({ children }: UserLayoutProps) {
             </p>
             <h1 className="text-base font-semibold text-slate-900">My Bookings</h1>
           </div>
-          <div className="flex items-center gap-3 sm:gap-6">
-            <nav
-              aria-label="User navigation"
-              className="flex items-center gap-3 sm:gap-5"
+          <div className="flex items-center gap-3">
+            <Link
+              href="/organizers"
+              className={buttonVariants({ variant: 'outline', size: 'sm' })}
             >
-              <Link
-                href="/organizers"
-                className="flex items-center gap-2 text-sm font-medium text-slate-700 hover:text-teal-700"
-              >
-                <Building2 aria-hidden="true" className="h-4 w-4" />
-                <span>Explore Events</span>
-              </Link>
-            </nav>
+              Browse events
+            </Link>
             <UserMenu name={name} email={email} role={role} />
           </div>
         </div>

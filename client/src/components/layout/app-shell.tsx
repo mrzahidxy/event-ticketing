@@ -4,7 +4,6 @@ import Link from 'next/link'
 
 import { UserMenu } from '@/components/layout/user-menu'
 import { NavLinks } from '@/components/navigation/nav-links'
-import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { appConfig } from '@/config/app'
 import { auth } from '@/lib/auth'
 
@@ -50,7 +49,6 @@ export async function AppShell({ children }: AppShellProps) {
             </div>
 
             <div className="flex items-center gap-4 text-sm">
-              <ThemeToggle label="" />
               <UserMenu name={name} email={email} role={role} />
             </div>
           </div>
