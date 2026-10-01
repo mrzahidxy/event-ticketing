@@ -8,7 +8,6 @@ import {
   toArray,
   toObject,
   toStringValue,
-  unwrapData,
 } from '@/lib/api/normalizers'
 
 export type ApiUserRole = 'ADMIN' | 'OWNER' | 'STAFF' | 'USER'
@@ -123,11 +122,10 @@ function normalizeAdminUser(entry: unknown): AdminUser {
 }
 
 function normalizeUserListResponse(payload: RawUserListResponse): UserListResult {
-  const rootPayload = unwrapData(payload) ?? payload
   const users = extractList(payload, ['users'], normalizeAdminUser)
 
   return {
-    meta: normalizePaginationMeta(toObject(rootPayload), users.length),
+    meta: normalizePaginationMeta(payload, users.length),
     users,
   }
 }
@@ -148,15 +146,6 @@ export async function listUsers(
   })
 
   return normalizeUserListResponse(response)
-}
-
-export async function getUserById(id: string): Promise<AdminUser> {
-  const response = await apiClient.get<unknown>(`/api/users/${id}`, {
-    auth: true,
-    cache: 'no-store',
-  })
-
-  return extractEntity(response, ['user'], normalizeAdminUser)
 }
 
 export async function createUser(input: CreateUserInput) {

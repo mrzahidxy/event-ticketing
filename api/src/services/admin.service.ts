@@ -11,6 +11,7 @@ type OrganizerDirectoryRow = {
   ownerName: string | null;
   isSuspended: boolean;
   createdAt: Date;
+  updatedAt: Date;
   staffCount: number | null;
   eventCount: number | null;
 };
@@ -185,18 +186,6 @@ const buildSynthesizedAuditLogEntries = async (): Promise<AuditLogEntry[]> => {
   ]);
 
   const entries: AuditLogEntry[] = [
-    {
-      id: 'system-backup-check',
-      scope: 'system',
-      organizerId: null,
-      action: 'system.backup.health_checked',
-      actorLabel: 'system',
-      actorType: 'system',
-      occurredAt: new Date().toISOString(),
-      metadata: {
-        status: 'healthy',
-      },
-    },
     ...recentOrganizers.flatMap((organizer): AuditLogEntry[] => {
       const created: AuditLogEntry = {
         id: `organizer-created-${organizer.organizerId}`,
@@ -279,6 +268,7 @@ export const adminService = {
         u.name AS "ownerName",
         o."isSuspended",
         o."createdAt",
+        o."updatedAt",
         COUNT(DISTINCT os."userId")::int AS "staffCount",
         COUNT(DISTINCT e.id)::int AS "eventCount"
       FROM "Organizer" o
@@ -302,6 +292,7 @@ export const adminService = {
         staffCount: row.staffCount ?? 0,
         eventCount: row.eventCount ?? 0,
         createdAt: row.createdAt.toISOString(),
+        updatedAt: row.updatedAt.toISOString(),
       };
     });
   },
@@ -361,7 +352,7 @@ export const adminService = {
       `,
       prisma.$queryRaw<Array<{ totalRevenue: number | null; lastPaymentAt: Date | null }>>`
         SELECT
-          COALESCE(SUM(p.amount), 0)::float AS "totalRevenue",
+          COALESCE(SUM(p.amount) FILTER (WHERE p.status = 'SUCCEEDED'), 0)::float AS "totalRevenue",
           MAX(p."createdAt") AS "lastPaymentAt"
         FROM "Payment" p
         INNER JOIN "Booking" b ON b.id = p."bookingId"
@@ -484,10 +475,7 @@ export const adminService = {
     const activityCountByDate = new Map(
       activityRows.map((row) => [row.date.toISOString().slice(0, 10), row.count ?? 0]),
     );
-    const recentActivity = auditLogEntries
-      .filter((entry) => entry.id !== 'system-backup-check')
-      .slice(0, 6)
-      .map(mapAuditLogToOverviewActivity);
+    const recentActivity = auditLogEntries.slice(0, 6).map(mapAuditLogToOverviewActivity);
     const latestActivity = recentActivity[0] ?? null;
 
     return {
