@@ -3,8 +3,6 @@
 import { apiClient } from '@/lib/api'
 import { extractList } from '@/lib/api/normalizers'
 
-export type AdminOrganizerStatus = 'ACTIVE' | 'SUSPENDED'
-
 export type AdminOrganizerDirectoryItem = {
   id: string
   organizerId: string
@@ -55,10 +53,6 @@ export type AdminSystemOverview = {
 type ListResponse<T> = {
   data?: T[]
 }
-
-type ApiResponse<T> = {
-  message?: string
-} & T
 
 function unwrapData<T = unknown>(payload: unknown): T | null {
   if (
@@ -234,18 +228,6 @@ export async function listAdminAuditLogs() {
   return extractList(response, ['logs', 'auditLogs', 'items'], normalizeAdminAuditLog)
 }
 
-export async function getAdminOrganizerActivity(organizerId: string) {
-  const response = await apiClient.get<ListResponse<AdminAuditLog>>(
-    `/api/admin/organizers/${organizerId}/activity`,
-    {
-      auth: true,
-      cache: 'no-store',
-    },
-  )
-
-  return extractList(response, ['activity', 'logs', 'items'], normalizeAdminAuditLog)
-}
-
 export async function getAdminSystemOverview() {
   const response = await apiClient.get<AdminSystemOverview>('/api/admin/system/overview', {
     auth: true,
@@ -253,19 +235,6 @@ export async function getAdminSystemOverview() {
   })
 
   return normalizeAdminSystemOverview(response)
-}
-
-export async function updateAdminOrganizerStatus(
-  organizerId: string,
-  status: 'active' | 'suspended',
-) {
-  return apiClient.patch<ApiResponse<{ organizer: { id: string; status: AdminOrganizerStatus } }>>(
-    `/api/organizers/${organizerId}/status`,
-    { status },
-    {
-      auth: true,
-    },
-  )
 }
 
 export async function deleteAdminOrganizer(organizerId: string) {
@@ -276,4 +245,13 @@ export async function deleteAdminOrganizer(organizerId: string) {
   return {
     message: 'Organizer deleted successfully',
   }
+}
+
+export async function updateAdminOrganizerStatus(
+  organizerId: string,
+  status: 'active' | 'suspended',
+) {
+  return apiClient.patch<unknown>(`/api/organizers/${organizerId}/status`, { status }, {
+    auth: true,
+  })
 }

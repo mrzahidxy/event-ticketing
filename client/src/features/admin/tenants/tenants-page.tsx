@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
-import { Database, MoreVertical } from 'lucide-react'
+import { MoreVertical } from 'lucide-react'
 import type { Route } from 'next'
 import Link from 'next/link'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import { FormField } from '@/components/ui/form-field'
 import { Input } from '@/components/ui/input'
 import { Modal } from '@/components/ui/modal'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/features/admin/components/ui/select'
 import { formatDate } from '@/lib/format'
 import { slugify } from '@/lib/utils'
 import {
@@ -38,9 +39,10 @@ import { useTenantDirectory, type Tenant } from './hooks/use-tenant-directory'
 export function TenantsPage() {
   const queryClient = useQueryClient()
   const [isCreateOpen, setIsCreateOpen] = useState(false)
-  const [createForm, setCreateForm] = useState({
+  const [createForm, setCreateForm] = useState<{ name: string; ownerEmail: string; status: 'active' | 'suspended' }>({
     name: '',
     ownerEmail: '',
+    status: 'active',
   })
   const {
     data: organizers = [],
@@ -52,23 +54,15 @@ export function TenantsPage() {
   })
 
   const statusMutation = useMutation({
-    mutationFn: ({
-      organizerId,
-      status,
-    }: {
-      organizerId: string
-      status: 'active' | 'suspended'
-    }) => updateAdminOrganizerStatus(organizerId, status),
-    onSuccess: (_, variables) => {
-      toast.success(
-        variables.status === 'suspended'
-          ? 'Organizer suspended successfully'
-          : 'Organizer reactivated successfully',
-      )
+    mutationFn: ({ organizerId, status }: { organizerId: string; status: 'active' | 'suspended' }) =>
+      updateAdminOrganizerStatus(organizerId, status),
+    onSuccess: (_, { status }) => {
+      toast.success(status === 'suspended' ? 'Organizer suspended successfully' : 'Organizer reactivated successfully')
       queryClient.invalidateQueries({ queryKey: ['admin-organizers'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-system-overview'] })
     },
-    onError: (mutationError: unknown) => {
-      toast.error(mutationError instanceof Error ? mutationError.message : 'Failed to update organizer')
+    onError: (error: unknown) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to update organizer status')
     },
   })
 
@@ -84,7 +78,7 @@ export function TenantsPage() {
   })
 
   const createMutation = useMutation({
-    mutationFn: async ({ name, ownerEmail }: { name: string; ownerEmail: string }) => {
+    mutationFn: async ({ name, ownerEmail, status }: { name: string; ownerEmail: string; status: 'active' | 'suspended' }) => {
       const users = await listUsers({
         limit: 20,
         page: 1,
@@ -110,11 +104,11 @@ export function TenantsPage() {
         throw new Error('Resolved owner user id is invalid')
       }
 
-      return createOrganizer({ name, ownerId })
+      return createOrganizer({ name, ownerId, status })
     },
     onSuccess: () => {
       toast.success('Organizer created successfully')
-      setCreateForm({ name: '', ownerEmail: '' })
+      setCreateForm({ name: '', ownerEmail: '', status: 'active' })
       setIsCreateOpen(false)
       queryClient.invalidateQueries({ queryKey: ['admin-organizers'] })
     },
@@ -131,7 +125,7 @@ export function TenantsPage() {
       name: organizer.organizer,
       slug: slugify(organizer.organizer),
       ownerEmail: organizer.ownerEmail || '—',
-      landingPageHref: `/organizers/${organizer.organizerId}`,
+      landingPageHref: organizer.status === 'Active' ? `/organizers/${organizer.organizerId}` : undefined,
       createdDate: organizer.createdAt ? formatDate(organizer.createdAt) : '—',
       lastActive: organizer.updatedAt ? formatDate(organizer.updatedAt) : '—',
       status: organizer.status === 'Suspended' ? 'Suspended' : 'Active',
@@ -150,7 +144,7 @@ export function TenantsPage() {
   } = useTenantDirectory(tenants)
 
   const hasError = Boolean(organizersError)
-  const isMutating = statusMutation.isPending || deleteMutation.isPending
+  const isMutating = deleteMutation.isPending || statusMutation.isPending
 
   const columns: ColumnDef<Tenant>[] = [
     {
@@ -168,7 +162,6 @@ export function TenantsPage() {
           ) : (
             <span className="font-semibold text-slate-900">{row.original.name}</span>
           )}
-          <span className="text-sm text-slate-500">/{row.original.slug}</span>
         </div>
       ),
     },
@@ -194,7 +187,7 @@ export function TenantsPage() {
     },
     {
       accessorKey: 'lastActive',
-      header: 'Last Active',
+      header: 'Last Updated',
     },
     {
       id: 'actions',
@@ -208,21 +201,12 @@ export function TenantsPage() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              {row.original.status === 'Active' ? (
-                <DropdownMenuItem
-                  disabled={isMutating}
-                  onClick={() => requestAction(row.original.id, 'suspend')}
-                >
-                  Suspend
-                </DropdownMenuItem>
-              ) : (
-                <DropdownMenuItem
-                  disabled={isMutating}
-                  onClick={() => requestAction(row.original.id, 'reactivate')}
-                >
-                  Reactivate
-                </DropdownMenuItem>
-              )}
+              <DropdownMenuItem
+                disabled={isMutating}
+                onClick={() => requestAction(row.original.id, row.original.status === 'Active' ? 'suspend' : 'reactivate')}
+              >
+                {row.original.status === 'Active' ? 'Suspend' : 'Reactivate'}
+              </DropdownMenuItem>
               <DropdownMenuItem
                 disabled={isMutating}
                 onClick={() => requestAction(row.original.id, 'delete')}
@@ -246,7 +230,6 @@ export function TenantsPage() {
             <p className="text-muted-foreground">Manage organizer accounts and operational access</p>
           </div>
           <Button onClick={() => setIsCreateOpen(true)}>
-            <Database className="mr-2 h-4 w-4" />
             Create Organizer
           </Button>
         </div>
@@ -268,6 +251,7 @@ export function TenantsPage() {
 
             <DataTable
               columns={columns}
+              enableRowSelection={false}
               data={filteredTenants}
               isLoading={isLoading}
               emptyMessage={
@@ -292,7 +276,9 @@ export function TenantsPage() {
       <ConfirmationDialog
         open={confirmDialog.isOpen}
         onClose={resetConfirmDialog}
+        isPending={isMutating}
         onConfirm={async () => {
+          if (isMutating) return
           if (!confirmDialog.tenant) {
             resetConfirmDialog()
             return
@@ -313,21 +299,13 @@ export function TenantsPage() {
             // handled in mutation callbacks
           }
         }}
-        title={
-          confirmDialog.action === 'delete'
-            ? 'Delete organizer'
-            : confirmDialog.action === 'suspend'
-            ? 'Suspend organizer'
-            : 'Reactivate organizer'
-        }
-        description={
-          confirmDialog.action === 'delete'
-            ? `Are you sure you want to delete "${confirmDialog.tenant?.name}"? This action cannot be undone.`
-            : confirmDialog.action === 'suspend'
-            ? `Suspend "${confirmDialog.tenant?.name}"? They will temporarily lose access to organizer operations.`
-            : `Reactivate "${confirmDialog.tenant?.name}"? They will regain access to organizer operations.`
-        }
-        actionLabel={confirmDialog.action === 'delete' ? 'Delete' : 'Confirm'}
+        title={confirmDialog.action === 'delete' ? 'Delete organizer' : confirmDialog.action === 'suspend' ? 'Suspend organizer' : 'Reactivate organizer'}
+        description={confirmDialog.action === 'delete'
+          ? `Are you sure you want to delete "${confirmDialog.tenant?.name}"? This action cannot be undone.`
+          : confirmDialog.action === 'suspend'
+          ? `Suspend "${confirmDialog.tenant?.name}"? Organizer operations and new bookings will be restricted.`
+          : `Reactivate "${confirmDialog.tenant?.name}"? Organizer operations will be available again.`}
+        actionLabel={isMutating ? 'Processing...' : confirmDialog.action === 'delete' ? 'Delete' : 'Confirm'}
         variant={confirmDialog.action === 'delete' ? 'destructive' : 'default'}
       />
 
@@ -335,7 +313,7 @@ export function TenantsPage() {
         open={isCreateOpen}
         onOpenChange={setIsCreateOpen}
         title="Create organizer"
-        description="Creates a new organizer using the backend `/organizers` endpoint."
+        description="Assign an existing owner and choose the organizer's initial status."
       >
         <div className="space-y-4">
           <FormField label="Organizer name" htmlFor="create-organizer-name">
@@ -362,6 +340,21 @@ export function TenantsPage() {
               }
             />
           </FormField>
+          <FormField label="Initial status" htmlFor="create-organizer-status">
+            <Select
+              value={createForm.status}
+              onValueChange={(status: 'active' | 'suspended') => setCreateForm((current) => ({ ...current, status }))}
+              disabled={createMutation.isPending}
+            >
+              <SelectTrigger id="create-organizer-status" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="suspended">Suspended</SelectItem>
+              </SelectContent>
+            </Select>
+          </FormField>
           <div className="flex justify-end gap-3">
             <Button variant="ghost" onClick={() => setIsCreateOpen(false)}>
               Cancel
@@ -387,7 +380,7 @@ export function TenantsPage() {
                   return
                 }
 
-                createMutation.mutate({ name: trimmedName, ownerEmail })
+                createMutation.mutate({ name: trimmedName, ownerEmail, status: createForm.status })
               }}
               disabled={createMutation.isPending}
             >

@@ -19,6 +19,7 @@ type ConfirmationDialogProps = {
   description: string
   actionLabel: string
   variant?: 'default' | 'destructive'
+  isPending?: boolean
 }
 
 export function ConfirmationDialog({
@@ -29,18 +30,23 @@ export function ConfirmationDialog({
   description,
   actionLabel,
   variant = 'default',
+  isPending = false,
 }: ConfirmationDialogProps) {
   return (
-    <AlertDialog open={open} onOpenChange={onClose}>
+    <AlertDialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen && !isPending) onClose() }}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
           <AlertDialogAction
-            onClick={onConfirm}
+            disabled={isPending}
+            onClick={(event) => {
+              event.preventDefault()
+              if (!isPending) onConfirm()
+            }}
             className={variant === 'destructive' ? 'bg-destructive hover:bg-destructive/90' : ''}
           >
             {actionLabel}

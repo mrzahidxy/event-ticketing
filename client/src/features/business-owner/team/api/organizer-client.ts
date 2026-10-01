@@ -25,6 +25,7 @@ export type OrganizerStaffMember = {
 export type CreateOrganizerRequest = {
   name: string
   ownerId?: number
+  status?: 'active' | 'suspended'
 }
 
 export type UpdateOrganizerRequest = {
@@ -97,18 +98,6 @@ export async function createOrganizer(input: CreateOrganizerRequest) {
   )
 
   return extractEntity(response, ['organizer'], normalizeOrganizer)
-}
-
-export async function listOrganizers() {
-  const response = await apiClient.get<unknown>(
-    '/api/organizers',
-    {
-      auth: true,
-      cache: 'no-store',
-    },
-  )
-
-  return extractList(response, ['organizers'], normalizeOrganizer)
 }
 
 export async function getOrganizer(organizerId: string) {
