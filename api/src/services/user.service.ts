@@ -81,10 +81,15 @@ const normalizeQuery = (
     where.role = query.role;
   }
 
+  if (query?.status) {
+    where.status = query.status;
+  }
+
   if (query?.search) {
     where.OR = [
       { email: { contains: query.search, mode: 'insensitive' } },
       { name: { contains: query.search, mode: 'insensitive' } },
+      { ownedOrganizer: { name: { contains: query.search, mode: 'insensitive' } } },
     ];
   }
 
@@ -96,6 +101,7 @@ const normalizeQuery = (
 };
 
 const USER_SELECT = {
+  status: true,
   id: true,
   email: true,
   name: true,
@@ -250,6 +256,13 @@ export const userService = {
       throw new HttpError(403, 'You do not have permission to update this user');
     }
 
+    if (input.status !== undefined && actor.role !== Role.ADMIN) {
+      throw new HttpError(403, 'Only admins can update account status');
+    }
+    if (input.status === 'INACTIVE' && actor.id === userId) {
+      throw new HttpError(400, 'You cannot suspend your own account');
+    }
+
     const existing = await prisma.user.findUnique({
       where: { id: userId },
     });
@@ -269,6 +282,7 @@ export const userService = {
       where: { id: userId },
       data: {
         email: input.email ?? existing.email,
+        status: input.status ?? existing.status,
         name: input.name === undefined ? existing.name : input.name,
       },
       select: USER_SELECT,

@@ -11,6 +11,7 @@ export const userIdParamSchema = z.object({
 });
 
 export const listUsersQuerySchema = z.object({
+  status: z.enum(['ACTIVE', 'INACTIVE']).optional(),
   role: z.nativeEnum(Role).optional(),
   search: z.string().min(1).optional(),
   page: z.coerce.number().int().positive().optional(),
@@ -26,6 +27,7 @@ export const createUserSchema = z.object({
 });
 
 export const updateUserSchema = z.object({
+  status: z.enum(['ACTIVE', 'INACTIVE']).optional(),
   email: z.string().email().optional(),
   name: z.string().min(1).nullable().optional(),
 });

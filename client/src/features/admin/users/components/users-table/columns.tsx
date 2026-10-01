@@ -63,6 +63,10 @@ export function createUsersColumns({
       header: 'Created',
     },
     {
+      accessorKey: 'statusLabel',
+      header: 'Status',
+    },
+    {
       id: 'actions',
       cell: ({ row }) => {
         const user = row.original
@@ -99,6 +103,12 @@ export function createUsersColumns({
                     ))}
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
+                <DropdownMenuItem
+                  onClick={() => onRequestAction(user, user.statusValue === 'ACTIVE' ? 'suspend' : 'activate')}
+                  disabled={disableManagement || isMutatingAction}
+                >
+                  {user.statusValue === 'ACTIVE' ? 'Suspend' : 'Activate'}
+                </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => onRequestAction(user, 'delete')}
                   className="text-rose-600 focus:text-rose-600"
