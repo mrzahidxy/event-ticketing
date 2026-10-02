@@ -33,14 +33,10 @@ export function useBookingTable({ initialData }: UseBookingTableOptions) {
     search,
     status,
     eventName,
-    checkInDate,
-    checkOutDate,
     setPage,
     setPageSize,
     setStatus,
     setEventName,
-    setCheckInDate,
-    setCheckOutDate,
     reset,
   } = useResourceFilters()
 
@@ -58,10 +54,8 @@ export function useBookingTable({ initialData }: UseBookingTableOptions) {
       sortBy,
       sortDirection,
       eventName: eventName || undefined,
-      checkInDate: checkInDate || undefined,
-      checkOutDate: checkOutDate || undefined,
     }),
-    [page, pageSize, search, status, sortBy, sortDirection, eventName, checkInDate, checkOutDate]
+    [page, pageSize, search, status, sortBy, sortDirection, eventName]
   )
 
   const { data, isFetching } = useQuery<PaginatedResult<Booking>>({
@@ -129,14 +123,10 @@ export function useBookingTable({ initialData }: UseBookingTableOptions) {
     pageSize,
     status,
     eventName,
-    checkInDate,
-    checkOutDate,
     setPage,
     setPageSize,
     setStatus,
     setEventName,
-    setCheckInDate,
-    setCheckOutDate,
     reset,
     isDeleting: deleteMutation.isPending,
     deleteBooking: (id: number) => deleteMutation.mutate(id),

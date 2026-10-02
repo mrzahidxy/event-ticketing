@@ -8,6 +8,7 @@ import {
 } from '@/lib/api/normalizers'
 import type {
   Booking,
+  BookingStatus,
   PaginatedResult,
   ResourceFilters,
 } from '@/types/booking'
@@ -30,10 +31,6 @@ export async function fetchBookings(
       page: filters.page,
       search: filters.search,
       status: filters.status,
-      checkInFrom: filters.checkInDate ?? filters.checkInFrom,
-      checkInTo: filters.checkInDate ?? filters.checkInTo,
-      checkOutFrom: filters.checkOutDate ?? filters.checkOutFrom,
-      checkOutTo: filters.checkOutDate ?? filters.checkOutTo,
     },
   })
 

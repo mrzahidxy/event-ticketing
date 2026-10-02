@@ -1,5 +1,5 @@
 import type { ColumnDef } from '@tanstack/react-table';
-import Link from 'next/link';
+import { Pencil, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -25,12 +25,9 @@ const BASE_COLUMNS: ColumnDef<Booking>[] = [
       const resource = row.original
       return (
         <div className="flex flex-col gap-1">
-          <Link
-            className="font-semibold text-slate-900 hover:text-teal-600"
-            href={`/business-owner/bookings/${resource.id}`}
-          >
+          <span className="font-semibold text-slate-900">
             {resource.eventName}
-          </Link>
+          </span>
           <span className="text-xs text-slate-500">Booked by {resource.user.name}</span>
         </div>
       )
@@ -85,20 +82,24 @@ export function createBookingColumns({
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
-            size="sm"
+            size="icon"
+            aria-label="Edit booking"
+            title="Edit booking"
             className={cn('hover:border-teal-300 hover:text-teal-600')}
             onClick={() => onEdit(row.original.id)}
           >
-            Edit
+            <Pencil className="h-4 w-4" aria-hidden="true" />
           </Button>
           <Button
             variant="outline"
-            size="sm"
+            size="icon"
+            aria-label="Delete booking"
+            title="Delete booking"
             className="text-rose-600 hover:border-rose-200 hover:text-rose-600"
             onClick={() => onDelete(row.original.id)}
             disabled={isDeleting}
           >
-            Delete
+            <Trash2 className="h-4 w-4" aria-hidden="true" />
           </Button>
         </div>
       ),

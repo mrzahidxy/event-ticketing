@@ -7,8 +7,6 @@ type BookingFilterState = {
   page: number
   pageSize: number
   eventName: string
-  checkInDate: string
-  checkOutDate: string
 }
 
 type BookingFilterActions = {
@@ -17,8 +15,6 @@ type BookingFilterActions = {
   setPage: (value: number) => void
   setPageSize: (value: number) => void
   setEventName: (value: string) => void
-  setCheckInDate: (value: string) => void
-  setCheckOutDate: (value: string) => void
 }
 
 const defaultState: BookingFilterState = {
@@ -27,8 +23,6 @@ const defaultState: BookingFilterState = {
   page: 1,
   pageSize: 10,
   eventName: '',
-  checkInDate: '',
-  checkOutDate: '',
 }
 
 export const useResourceFilters = createResettableStore<
@@ -56,16 +50,6 @@ export const useResourceFilters = createResettableStore<
     setEventName: (value) =>
       set({
         eventName: value,
-        page: 1,
-      }),
-    setCheckInDate: (value) =>
-      set({
-        checkInDate: value,
-        page: 1,
-      }),
-    setCheckOutDate: (value) =>
-      set({
-        checkOutDate: value,
         page: 1,
       }),
   }),

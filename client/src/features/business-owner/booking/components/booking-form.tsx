@@ -11,7 +11,6 @@ import { Button } from '@/components/ui/button'
 import { FormField } from '@/components/ui/form-field'
 import { Select } from '@/components/ui/select'
 import { Spinner } from '@/components/ui/spinner'
-import { cn } from '@/lib/utils'
 import { bookingUpdateFormSchema } from '@/validation/booking-schema'
 
 import { updateBookingRequest } from '../api/booking-client'
@@ -22,13 +21,11 @@ type FormValues = z.infer<typeof bookingUpdateFormSchema>
 type BookingFormProps = {
   defaultValues?: Partial<FormValues>
   bookingId: string
-  className?: string
 }
 
 export function BookingForm({
   defaultValues,
   bookingId,
-  className,
 }: BookingFormProps) {
   const queryClient = useQueryClient()
   const router = useRouter()
@@ -56,7 +53,7 @@ export function BookingForm({
   })
 
   return (
-    <form onSubmit={handleSubmit} className={cn('space-y-5 p-6', className)}>
+    <form onSubmit={handleSubmit} className="space-y-5">
       <FormField
         label="Status"
         error={form.formState.errors.status?.message}
@@ -67,33 +64,24 @@ export function BookingForm({
           <option value="CONFIRMED" disabled>
             Confirmed (Webhook only)
           </option>
-          <option value="COMPLETED">Completed</option>
           <option value="CANCELLED">Cancelled</option>
         </Select>
       </FormField>
 
       <footer className="flex items-center justify-end gap-3">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => form.reset()}
-          disabled={mutation.isPending}
-        >
-          Reset
-        </Button>
-        <Button
-          type="submit"
-          disabled={mutation.isPending || !form.formState.isDirty}
-        >
-          {mutation.isPending ? (
-            <span className="flex items-center gap-2">
-              <Spinner size="sm" />
-              Saving...
-            </span>
-          ) : (
-            'Save changes'
-          )}
-        </Button>
+          <Button
+            type="submit"
+            disabled={mutation.isPending || !form.formState.isDirty}
+          >
+            {mutation.isPending ? (
+              <span className="flex items-center gap-2">
+                <Spinner size="sm" />
+                Saving...
+              </span>
+            ) : (
+              'Save changes'
+            )}
+          </Button>
       </footer>
     </form>
   )
