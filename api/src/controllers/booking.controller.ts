@@ -68,6 +68,7 @@ export const bookingController = {
           id: booking.id,
           eventId: booking.eventId,
           eventName: booking.eventName,
+          eventDate: formatDate(booking.eventDate),
           bookingDate: formatDate(booking.bookingDate),
           bookingTime: booking.bookingTime,
           quantity: booking.quantity,

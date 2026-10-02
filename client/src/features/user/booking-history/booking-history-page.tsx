@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Download } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
@@ -113,6 +113,11 @@ function downloadTicket(
 export function UserBookingHistoryPage() {
   const [page, setPage] = useState(1)
   const [ticketBookingId, setTicketBookingId] = useState<number | null>(null)
+  const [isCheckoutReturn, setIsCheckoutReturn] = useState(false)
+
+  useEffect(() => {
+    setIsCheckoutReturn(new URLSearchParams(window.location.search).get('checkout') === 'success')
+  }, [])
 
   const { data, isLoading, isFetching, isError, error } = useQuery({
     queryKey: ['user-booking-history', page, PAGE_SIZE],
@@ -135,6 +140,15 @@ export function UserBookingHistoryPage() {
 
   return (
     <div className="space-y-6">
+      {isCheckoutReturn ? (
+        <Alert>
+          <AlertTitle>Payment processing</AlertTitle>
+          <AlertDescription>
+            Your booking status will update after payment is confirmed. Refresh this page to check for updates.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
       <Card>
         <CardHeader>
           <CardTitle>Your Booking History</CardTitle>
@@ -303,8 +317,8 @@ export function UserBookingHistoryPage() {
                             downloadTicket(
                               ticket,
                               ticketBooking?.eventName || selectedBooking?.eventName || 'Event',
-                              selectedBooking?.checkIn
-                                ? formatDate(selectedBooking.checkIn)
+                              ticketBooking?.eventDate || selectedBooking?.eventDate
+                                ? formatDate(ticketBooking?.eventDate || selectedBooking?.eventDate || '')
                                 : 'Date to be announced',
                             )
                           }

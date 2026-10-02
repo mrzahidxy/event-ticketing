@@ -338,6 +338,7 @@ export function normalizeBooking(payload: unknown): Booking {
     checkOut: toStringValue(record?.checkOut ?? record?.bookingDate),
     createdAt: toStringValue(record?.createdAt),
     eventId: toNullableString(record?.eventId ?? event?.id),
+    eventDate: toStringValue(record?.eventDate ?? event?.startsAt) || undefined,
     eventName,
     guestCount: toNumberValue(record?.guestCount, 0) || undefined,
     guestEmail: toStringValue(record?.guestEmail ?? record?.email) || undefined,

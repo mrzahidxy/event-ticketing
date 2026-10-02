@@ -87,6 +87,7 @@ const bookingDetailInclude = {
     select: {
       id: true,
       name: true,
+      startsAt: true,
       description: true,
       isPublished: true,
       organizer: {
@@ -444,6 +445,7 @@ type UserBookingHistoryItem = {
   id: number;
   eventId: string | null;
   eventName: string | null;
+  eventDate: Date | null;
   bookingDate: Date | null;
   bookingTime: string | null;
   quantity: number;
@@ -772,6 +774,7 @@ export const bookingService = {
           event: {
             select: {
               name: true,
+              startsAt: true,
             },
           },
         },
@@ -789,6 +792,7 @@ export const bookingService = {
         id: booking.id,
         eventId: booking.eventId,
         eventName: booking.event?.name ?? null,
+        eventDate: booking.event?.startsAt ?? null,
         bookingDate: booking.createdAt,
         bookingTime: null,
         quantity: booking.items.reduce((sum, item) => sum + item.quantity, 0),

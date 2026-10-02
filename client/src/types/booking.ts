@@ -21,6 +21,7 @@ export type Booking = {
   organizerId: string | null
   eventId: string | null
   eventName: string
+  eventDate?: string
   checkIn: string
   checkOut: string
   totalPrice: string
