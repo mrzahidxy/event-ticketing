@@ -1,11 +1,6 @@
 import { z } from 'zod'
 
-const bookingStatusSchema = z.enum([
-  'CONFIRMED',
-  'PENDING',
-  'CANCELLED',
-  'COMPLETED',
-])
+const bookingStatusSchema = z.enum(['CONFIRMED', 'PENDING', 'CANCELLED', 'COMPLETED'])
 
 function normalizeDate(
   value: string,
@@ -58,55 +53,57 @@ function normalizeDate(
   return datePart
 }
 
-export const bookingFormSchema = z.object({
-  eventId: z.string().trim().optional(),
-  ticketTierId: z.coerce
-    .number({ invalid_type_error: 'Ticket tier is required' })
-    .int('Ticket tier ID must be a whole number')
-    .positive('Please select a ticket tier')
-    .optional(),
-  quantity: z.coerce
-    .number({
-      invalid_type_error: 'Quantity is required',
-    })
-    .int('Quantity must be a whole number')
-    .min(1, 'Quantity must be at least 1')
-    .optional(),
-  status: bookingStatusSchema.optional(),
-  checkIn: z.preprocess(
-    (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
-    z
-      .string()
-      .transform((val, ctx) => normalizeDate(val, ctx, 'checkIn'))
+export const bookingFormSchema = z
+  .object({
+    eventId: z.string().trim().optional(),
+    ticketTierId: z.coerce
+      .number({ invalid_type_error: 'Ticket tier is required' })
+      .int('Ticket tier ID must be a whole number')
+      .positive('Please select a ticket tier')
       .optional(),
-  ),
-  checkOut: z.preprocess(
-    (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
-    z
-      .string()
-      .transform((val, ctx) => normalizeDate(val, ctx, 'checkOut'))
+    quantity: z.coerce
+      .number({
+        invalid_type_error: 'Quantity is required',
+      })
+      .int('Quantity must be a whole number')
+      .min(1, 'Quantity must be at least 1')
       .optional(),
-  ),
-}).superRefine((data, ctx) => {
-  if (!data.checkIn || !data.checkOut) {
-    return
-  }
+    status: bookingStatusSchema.optional(),
+    checkIn: z.preprocess(
+      (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+      z
+        .string()
+        .transform((val, ctx) => normalizeDate(val, ctx, 'checkIn'))
+        .optional(),
+    ),
+    checkOut: z.preprocess(
+      (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+      z
+        .string()
+        .transform((val, ctx) => normalizeDate(val, ctx, 'checkOut'))
+        .optional(),
+    ),
+  })
+  .superRefine((data, ctx) => {
+    if (!data.checkIn || !data.checkOut) {
+      return
+    }
 
-  const checkInDate = new Date(data.checkIn)
-  const checkOutDate = new Date(data.checkOut)
+    const checkInDate = new Date(data.checkIn)
+    const checkOutDate = new Date(data.checkOut)
 
-  if (Number.isNaN(checkInDate.getTime()) || Number.isNaN(checkOutDate.getTime())) {
-    return
-  }
+    if (Number.isNaN(checkInDate.getTime()) || Number.isNaN(checkOutDate.getTime())) {
+      return
+    }
 
-  if (checkInDate >= checkOutDate) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['checkOut'],
-      message: 'Check-out date must be after check-in date',
-    })
-  }
-})
+    if (checkInDate >= checkOutDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['checkOut'],
+        message: 'Check-out date must be after check-in date',
+      })
+    }
+  })
 
 export const bookingCreateFormSchema = bookingFormSchema.superRefine((data, ctx) => {
   if (!data.eventId?.trim()) {
@@ -158,9 +155,7 @@ const userOrganizerBookingBaseSchema = z.object({
     .number({ invalid_type_error: 'Ticket tier is required' })
     .int('Ticket tier ID must be a whole number')
     .positive('Please select a ticket tier'),
-  bookingDate: z
-    .string()
-    .transform((val, ctx) => normalizeDate(val, ctx, 'bookingDate')),
+  bookingDate: z.string().transform((val, ctx) => normalizeDate(val, ctx, 'bookingDate')),
   bookingTime: z
     .string()
     .trim()
@@ -176,22 +171,17 @@ const userOrganizerBookingBaseSchema = z.object({
     .trim()
     .max(100, 'Full name must be 100 characters or fewer')
     .optional(),
-  email: z
-    .string()
-    .trim()
-    .email('A valid email address is required')
-    .optional(),
-  phone: z
-    .preprocess(
-      (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
-      z
-        .string()
-        .trim()
-        .min(7, 'A valid phone number is required')
-        .max(24, 'Phone number must be 24 characters or fewer')
-        .regex(/^[0-9+\-()\s]+$/, 'A valid phone number is required')
-        .optional()
-    ),
+  email: z.string().trim().email('A valid email address is required').optional(),
+  phone: z.preprocess(
+    (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+    z
+      .string()
+      .trim()
+      .min(7, 'A valid phone number is required')
+      .max(24, 'Phone number must be 24 characters or fewer')
+      .regex(/^[0-9+\-()\s]+$/, 'A valid phone number is required')
+      .optional(),
+  ),
   notes: z
     .string()
     .trim()
@@ -202,14 +192,15 @@ const userOrganizerBookingBaseSchema = z.object({
 
 export const userOrganizerBookingFormSchema = userOrganizerBookingBaseSchema
 
-export const organizerBookingSubmissionSchema = userOrganizerBookingBaseSchema.superRefine((data, ctx) => {
-  if (!data.email?.trim()) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['email'],
-      message: 'An email address is required',
-    })
-  }
-})
+export const organizerBookingSubmissionSchema =
+  userOrganizerBookingBaseSchema.superRefine((data, ctx) => {
+    if (!data.email?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['email'],
+        message: 'An email address is required',
+      })
+    }
+  })
 
 export const bookingStatus = bookingStatusSchema

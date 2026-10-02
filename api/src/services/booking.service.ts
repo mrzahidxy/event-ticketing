@@ -87,6 +87,7 @@ const bookingDetailInclude = {
     select: {
       id: true,
       name: true,
+      startsAt: true,
       description: true,
       isPublished: true,
       organizer: {
@@ -444,6 +445,7 @@ type UserBookingHistoryItem = {
   id: number;
   eventId: string | null;
   eventName: string | null;
+  eventDate: Date | null;
   bookingDate: Date | null;
   bookingTime: string | null;
   quantity: number;
@@ -545,10 +547,10 @@ const invalidateBookingCollections = async (userId: number) => {
 export const bookingService = {
   createPublicTicketBooking: async (
     input: CreatePublicBookingInput,
-    actor?: AuthenticatedUser | null,
-    organizerId?: string
+    actor: AuthenticatedUser,
+    organizerId: string
   ): Promise<PublicBookingSubmission> => {
-    if (!actor || actor.role !== Role.USER) {
+    if (actor.role !== Role.USER) {
       throw new HttpError(401, 'Sign in with a user account to continue to ticket checkout');
     }
 
@@ -571,8 +573,8 @@ export const bookingService = {
       throw new HttpError(404, 'Event not found for this organizer');
     }
 
-    const fullName = input.fullName?.trim() || actor?.name?.trim() || actor?.email?.trim();
-    const email = input.email?.trim() || actor?.email?.trim();
+    const fullName = input.fullName?.trim() || actor.name?.trim() || actor.email?.trim();
+    const email = input.email?.trim() || actor.email?.trim();
     const phone = input.phone?.trim() || null;
 
     if (!fullName || !email) {
@@ -583,7 +585,7 @@ export const bookingService = {
       eventId: input.eventId,
       ticketTierId: input.ticketTierId,
       quantity: input.quantity,
-      userId: actor?.id ?? null,
+      userId: actor.id,
       fullName,
       email,
       phone,
@@ -772,6 +774,7 @@ export const bookingService = {
           event: {
             select: {
               name: true,
+              startsAt: true,
             },
           },
         },
@@ -789,6 +792,7 @@ export const bookingService = {
         id: booking.id,
         eventId: booking.eventId,
         eventName: booking.event?.name ?? null,
+        eventDate: booking.event?.startsAt ?? null,
         bookingDate: booking.createdAt,
         bookingTime: null,
         quantity: booking.items.reduce((sum, item) => sum + item.quantity, 0),

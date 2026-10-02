@@ -232,7 +232,7 @@ const bookingPaths: OAS3Definition['paths'] = {
           schema: {
             type: 'string',
           },
-          description: 'Search by booking guest, contact, or event name (case-insensitive)',
+          description: 'Search by ticket buyer, contact, or event name (case-insensitive)',
           example: 'john',
         },
         {

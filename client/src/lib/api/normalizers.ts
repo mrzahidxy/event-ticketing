@@ -1,4 +1,4 @@
-import type { Booking, PaginatedResult } from '@/types/booking'
+import type { Booking, BookingTicket, PaginatedResult } from '@/types/booking'
 import type {
   Event,
   Organizer,
@@ -302,6 +302,26 @@ export function normalizePaymentRecord(payload: unknown): PaymentRecord {
   }
 }
 
+function normalizeBookingTicket(payload: unknown): BookingTicket {
+  const record = toObject(payload)
+  const status = toStringValue(record?.status, 'ISSUED').toUpperCase()
+
+  return {
+    id: toStringValue(record?.id),
+    code: toStringValue(record?.code),
+    qrPayload: toStringValue(record?.qrPayload),
+    attendeeName: toNullableString(record?.attendeeName),
+    attendeeEmail: toNullableString(record?.attendeeEmail),
+    status: status === 'CHECKED_IN' || status === 'VOIDED' || status === 'CANCELLED'
+      ? status
+      : 'ISSUED',
+    issuedAt: toStringValue(record?.issuedAt),
+    checkedInAt: toNullableString(record?.checkedInAt),
+    voidedAt: toNullableString(record?.voidedAt),
+    ticketTierId: toNumberValue(record?.ticketTierId),
+  }
+}
+
 export function normalizeBooking(payload: unknown): Booking {
   const record = toObject(payload)
   const event = toObject(record?.event)
@@ -318,6 +338,7 @@ export function normalizeBooking(payload: unknown): Booking {
     checkOut: toStringValue(record?.checkOut ?? record?.bookingDate),
     createdAt: toStringValue(record?.createdAt),
     eventId: toNullableString(record?.eventId ?? event?.id),
+    eventDate: toStringValue(record?.eventDate ?? event?.startsAt) || undefined,
     eventName,
     guestCount: toNumberValue(record?.guestCount, 0) || undefined,
     guestEmail: toStringValue(record?.guestEmail ?? record?.email) || undefined,
@@ -328,6 +349,7 @@ export function normalizeBooking(payload: unknown): Booking {
     organizerId: toNullableString(record?.organizerId ?? organizer?.id),
     payments: extractList(record?.payments, ['payments'], normalizePaymentRecord),
     status: normalizeBookingStatus(record?.status),
+    tickets: extractList(record?.tickets, ['tickets'], normalizeBookingTicket),
     totalPrice: toStringValue(
       record?.totalPrice ??
         record?.amount ??
