@@ -24,6 +24,7 @@ export type Booking = {
   eventDate?: string
   checkIn: string
   checkOut: string
+  bookingDate?: string
   totalPrice: string
   status: BookingStatus
   notes: string

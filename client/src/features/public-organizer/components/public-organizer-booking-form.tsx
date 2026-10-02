@@ -205,7 +205,7 @@ export function UserOrganizerBookingForm({
           >
             <Select
               id="user-booking-event"
-              disabled={!events.length || mutation.isPending}
+              disabled={!isAuthenticated || !events.length || mutation.isPending}
               {...form.register('eventId')}
             >
               <option value="">{events.length ? 'Select an event' : 'No events available'}</option>
@@ -227,7 +227,7 @@ export function UserOrganizerBookingForm({
               <Input
                 id="user-booking-date"
                 type="date"
-                disabled={mutation.isPending}
+                disabled={!isAuthenticated || mutation.isPending}
                 {...form.register('bookingDate')}
               />
             </FormField>
@@ -241,7 +241,7 @@ export function UserOrganizerBookingForm({
               <Input
                 id="user-booking-time"
                 type="time"
-                disabled={mutation.isPending}
+                disabled={!isAuthenticated || mutation.isPending}
                 {...form.register('bookingTime')}
               />
             </FormField>
@@ -257,7 +257,7 @@ export function UserOrganizerBookingForm({
             >
               <Select
                 id="user-booking-ticket-tier"
-                disabled={!selectedEventTiers.length || mutation.isPending}
+                disabled={!isAuthenticated || !selectedEventTiers.length || mutation.isPending}
                 {...form.register('ticketTierId', { valueAsNumber: true })}
               >
                 <option value={0}>Select a ticket tier</option>
@@ -294,7 +294,7 @@ export function UserOrganizerBookingForm({
                 type="number"
                 min={1}
                 max={selectedTierAvailable ?? undefined}
-                disabled={mutation.isPending || !selectedTier}
+                disabled={!isAuthenticated || mutation.isPending || !selectedTier}
                 {...form.register('quantity', { valueAsNumber: true })}
               />
             </FormField>
@@ -311,7 +311,7 @@ export function UserOrganizerBookingForm({
               <Input
                 id="public-booking-name"
                 autoComplete="name"
-                disabled={isAuthenticated || mutation.isPending}
+                disabled
                 placeholder="Your full name"
                 {...form.register('fullName')}
               />
@@ -327,7 +327,7 @@ export function UserOrganizerBookingForm({
               <Input
                 id="public-booking-email"
                 autoComplete="email"
-                disabled={isAuthenticated || mutation.isPending}
+                disabled
                 placeholder="you@example.com"
                 type="email"
                 {...form.register('email')}
@@ -344,7 +344,7 @@ export function UserOrganizerBookingForm({
               <Input
                 id="public-booking-phone"
                 autoComplete="tel"
-                disabled={mutation.isPending}
+                disabled={!isAuthenticated || mutation.isPending}
                 placeholder="+1 (555) 123-4567"
                 type="tel"
                 {...form.register('phone')}
@@ -361,7 +361,7 @@ export function UserOrganizerBookingForm({
             <Textarea
               id="public-booking-notes"
               placeholder="Optional booking notes"
-              disabled={mutation.isPending}
+              disabled={!isAuthenticated || mutation.isPending}
               {...form.register('notes')}
             />
           </FormField>

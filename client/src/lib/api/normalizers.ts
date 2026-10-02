@@ -331,6 +331,7 @@ export function normalizeBooking(payload: unknown): Booking {
   )
 
   return {
+    bookingDate: toStringValue(record?.bookingDate) || undefined,
     bookingTime: toStringValue(record?.bookingTime) || undefined,
     checkIn: toStringValue(record?.checkIn ?? record?.bookingDate),
     checkOut: toStringValue(record?.checkOut ?? record?.bookingDate),
