@@ -2,18 +2,36 @@ import { apiClient } from '@/lib/api'
 import {
   extractEntity,
   extractList,
-  normalizeBooking,
   normalizeEvent,
   normalizeOrganizer,
+  toNullableString,
+  toNumberValue,
   toObject,
-  unwrapData,
+  toStringValue,
 } from '@/lib/api/normalizers'
-import type { PublicOrganizerBookingInput } from '@/types/booking'
+import type { UserOrganizerBookingInput } from '@/types/booking'
 import type { Event, Organizer } from '@/types/domain'
 
 export type PublicOrganizerPageData = {
   organizer: Organizer
   publishedEvents: Event[]
+}
+
+export type UserOrganizerCheckoutSession = {
+  id: string
+  url: string | null
+  expiresAt: number | null
+}
+
+function normalizeUserOrganizerCheckoutSession(payload: unknown): UserOrganizerCheckoutSession {
+  const record = toObject(payload)
+  const expiresAt = toNumberValue(record?.expiresAt, Number.NaN)
+
+  return {
+    id: toStringValue(record?.id),
+    url: toNullableString(record?.url),
+    expiresAt: Number.isFinite(expiresAt) ? expiresAt : null,
+  }
 }
 
 function normalizePublicOrganizerPageData(payload: unknown): PublicOrganizerPageData {
@@ -41,32 +59,22 @@ export async function getPublicOrganizerPage(organizerId: string): Promise<Publi
   return normalizePublicOrganizerPageData(response)
 }
 
-export async function createPublicOrganizerBooking(
+export async function createUserOrganizerBooking(
   organizerId: string,
-  input: PublicOrganizerBookingInput,
+  input: UserOrganizerBookingInput,
 ) {
-  const returnUrl = new URL('/user/bookings', window.location.origin).toString()
+  const successUrl = new URL('/user/bookings?checkout=success', window.location.origin).toString()
+  const cancelUrl = new URL(
+    `/organizers/${organizerId}?eventId=${encodeURIComponent(input.eventId)}#booking-form`,
+    window.location.origin,
+  ).toString()
   const response = await apiClient.post<unknown>(
     `/api/public/organizers/${organizerId}/bookings`,
-    {
-      ...input,
-      successUrl: returnUrl,
-      cancelUrl: returnUrl,
-    },
+    { ...input, successUrl, cancelUrl },
     {
       auth: true,
     },
   )
 
-  const checkoutSession = toObject(toObject(unwrapData(response))?.checkoutSession)
-  const checkoutUrl = checkoutSession?.url
-
-  if (typeof checkoutUrl !== 'string' || !checkoutUrl) {
-    throw new Error('Stripe did not return a checkout URL')
-  }
-
-  return {
-    booking: extractEntity(response, ['booking'], normalizeBooking),
-    checkoutUrl,
-  }
+  return extractEntity(response, ['checkoutSession'], normalizeUserOrganizerCheckoutSession)
 }

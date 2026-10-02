@@ -52,13 +52,12 @@ export type BookingInput = {
   notes?: string
 }
 
-export type PublicOrganizerBookingInput = {
+export type UserOrganizerBookingInput = {
   eventId: string
   ticketTierId: number
   bookingDate: string
   bookingTime: string
   quantity: number
-  guestCount?: number
   fullName?: string
   email?: string
   phone?: string

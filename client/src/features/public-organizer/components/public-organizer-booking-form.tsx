@@ -2,16 +2,17 @@
 
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation } from '@tanstack/react-query'
+import Link from 'next/link'
+import type { Route } from 'next'
 import { useSession } from 'next-auth/react'
 import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import type { z } from 'zod'
-import { CalendarDays, Clock3, Mail, Phone, Sparkles, UserCircle2 } from 'lucide-react'
+import { ArrowRight, Mail, UserCircle2 } from 'lucide-react'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { FormField } from '@/components/ui/form-field'
 import { Input } from '@/components/ui/input'
@@ -19,38 +20,38 @@ import { Select } from '@/components/ui/select'
 import { Spinner } from '@/components/ui/spinner'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
-import { createPublicOrganizerBooking } from '@/features/public-organizer/api/public-organizer-client'
-import { publicOrganizerBookingSchema } from '@/validation/booking-schema'
+import { createUserOrganizerBooking } from '@/features/public-organizer/api/public-organizer-client'
+import {
+  organizerBookingSubmissionSchema,
+  userOrganizerBookingFormSchema,
+} from '@/validation/booking-schema'
 import type { Event } from '@/types/domain'
 
-type BookingFormValues = z.infer<typeof publicOrganizerBookingSchema>
+type UserOrganizerBookingFormValues = z.infer<typeof userOrganizerBookingFormSchema>
 
-type PublicOrganizerBookingFormProps = {
+type UserOrganizerBookingFormProps = {
   className?: string
   events: Event[]
   initialEventId?: string
   organizerId: string
-  organizerName: string
 }
 
-export function PublicOrganizerBookingForm({
+export function UserOrganizerBookingForm({
   className,
   events,
   initialEventId,
   organizerId,
-  organizerName,
-}: PublicOrganizerBookingFormProps) {
+}: UserOrganizerBookingFormProps) {
   const { data: session, status } = useSession()
   const isAuthenticated = status === 'authenticated' && Boolean(session?.user?.email)
-  const form = useForm<BookingFormValues>({
-    resolver: zodResolver(publicOrganizerBookingSchema),
+  const form = useForm<UserOrganizerBookingFormValues>({
+    resolver: zodResolver(userOrganizerBookingFormSchema),
     defaultValues: {
       bookingDate: '',
       bookingTime: '',
       email: session?.user?.email ?? '',
       eventId: initialEventId ?? events[0]?.id ?? '',
       fullName: session?.user?.name ?? '',
-      guestCount: 1,
       notes: '',
       quantity: 1,
       ticketTierId: events.find((event) => event.id === (initialEventId ?? events[0]?.id))?.ticketTiers?.[0]?.id ?? 0,
@@ -68,9 +69,12 @@ export function PublicOrganizerBookingForm({
     null
   const selectedTierAvailable = selectedTier?.quantityTotal === null
     ? null
-    : selectedTier
-      ? Math.max(selectedTier.quantityTotal - selectedTier.quantitySold, 0)
-      : null
+      : selectedTier
+        ? Math.max(selectedTier.quantityTotal - selectedTier.quantitySold, 0)
+        : null
+  const loginHref = selectedEventId
+    ? `/login?callbackUrl=${encodeURIComponent(`/organizers/${organizerId}?eventId=${selectedEventId}#booking-form`)}`
+    : '/login'
 
   useEffect(() => {
     const eventId = initialEventId || form.getValues('eventId') || events[0]?.id
@@ -119,30 +123,34 @@ export function PublicOrganizerBookingForm({
   }, [form, isAuthenticated, session?.user?.email, session?.user?.name])
 
   const mutation = useMutation({
-    mutationFn: async (values: BookingFormValues) => {
-      return createPublicOrganizerBooking(organizerId, values)
+    mutationFn: async (values: UserOrganizerBookingFormValues) => {
+      return createUserOrganizerBooking(organizerId, values)
     },
-    onSuccess: ({ checkoutUrl }) => {
-      window.location.assign(checkoutUrl)
+    onSuccess: (checkoutSession) => {
+      if (!checkoutSession.url) {
+        toast.error('Checkout could not be opened. Please try again.')
+        return
+      }
+
+      window.location.assign(checkoutSession.url)
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'Booking request failed')
     },
   })
 
-  const canSubmit =
-    isAuthenticated && events.length > 0 && Boolean(selectedTier) && !mutation.isPending
+  const canSubmit = events.length > 0 && Boolean(selectedTier) && !mutation.isPending && status !== 'loading'
 
   const handleSubmit = form.handleSubmit((values) => {
     form.clearErrors()
 
-    const parsed = publicOrganizerBookingSchema.safeParse(values)
+    const parsed = organizerBookingSubmissionSchema.safeParse(values)
 
     if (!parsed.success) {
       parsed.error.issues.forEach((issue) => {
         const fieldName = issue.path[0]
         if (typeof fieldName === 'string') {
-          form.setError(fieldName as keyof BookingFormValues, {
+          form.setError(fieldName as keyof UserOrganizerBookingFormValues, {
             message: issue.message,
             type: 'manual',
           })
@@ -158,56 +166,44 @@ export function PublicOrganizerBookingForm({
   })
 
   return (
-    <Card id="booking-form" className={cn('border-slate-200 bg-white/95', className)}>
-      <CardHeader className="space-y-4">
-        <div className="flex items-center justify-between gap-3">
-          <div className="space-y-2">
-            <Badge variant="success">Booking</Badge>
-            <CardTitle className="text-2xl">Reserve with {organizerName}</CardTitle>
-          </div>
-          <Sparkles className="h-5 w-5 text-teal-500" />
-        </div>
-        <p className="text-sm leading-6 text-slate-600">
-          Choose an event, add your booking details, and we will send the request to the organizer.
-        </p>
+    <Card id="booking-form" className={cn('border-slate-200 bg-white', className)}>
+      <CardHeader className="p-4 pb-3 sm:p-5 sm:pb-3">
+        <CardTitle className="text-xl">Reserve tickets</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-5">
-        {isAuthenticated ? (
+      <CardContent className="space-y-3 p-4 pt-0 sm:p-5 sm:pt-0">
+        {status === 'authenticated' ? (
           <Alert variant="default" className="border-teal-200 bg-teal-50 text-teal-900">
             <AlertTitle className="flex items-center gap-2 text-sm">
               <UserCircle2 className="h-4 w-4" />
-              Signed in booking
+              Booking as {session?.user?.name ?? session?.user?.email ?? 'your account'}
             </AlertTitle>
             <AlertDescription>
-              We will reuse your account name and email when submitting this booking.
+              Your account details will be used for this booking.
             </AlertDescription>
           </Alert>
         ) : (
           <Alert variant="default" className="border-slate-200 bg-slate-50 text-slate-700">
             <AlertTitle className="flex items-center gap-2 text-sm">
               <UserCircle2 className="h-4 w-4" />
-              Sign in required
+              Sign in to book
             </AlertTitle>
             <AlertDescription>
-              Sign in with a user account before continuing to payment.
+              Sign in to your account before submitting a booking request.
+              {' '}<Link href={loginHref as Route} className="font-semibold text-teal-700 underline underline-offset-2">Sign in</Link>
             </AlertDescription>
           </Alert>
         )}
 
-        <form className="space-y-5" onSubmit={handleSubmit}>
+        <form className="space-y-3" onSubmit={handleSubmit}>
           <FormField
             label="Event"
             error={form.formState.errors.eventId?.message}
-            htmlFor="public-booking-event"
+            htmlFor="user-booking-event"
             required
-            description={
-              events.length > 0
-                ? 'Select one of the published events from this organizer.'
-                : 'There are no published events available to book.'
-            }
+            description={events.length === 0 ? 'No published events are available.' : undefined}
           >
             <Select
-              id="public-booking-event"
+              id="user-booking-event"
               disabled={!events.length || mutation.isPending}
               {...form.register('eventId')}
             >
@@ -220,15 +216,15 @@ export function PublicOrganizerBookingForm({
             </Select>
           </FormField>
 
-          <div className="grid gap-5 md:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2">
             <FormField
               label="Booking Date"
               error={form.formState.errors.bookingDate?.message}
-              htmlFor="public-booking-date"
+              htmlFor="user-booking-date"
               required
             >
               <Input
-                id="public-booking-date"
+                id="user-booking-date"
                 type="date"
                 disabled={mutation.isPending}
                 {...form.register('bookingDate')}
@@ -238,11 +234,11 @@ export function PublicOrganizerBookingForm({
             <FormField
               label="Booking Time"
               error={form.formState.errors.bookingTime?.message}
-              htmlFor="public-booking-time"
+              htmlFor="user-booking-time"
               required
             >
               <Input
-                id="public-booking-time"
+                id="user-booking-time"
                 type="time"
                 disabled={mutation.isPending}
                 {...form.register('bookingTime')}
@@ -250,20 +246,16 @@ export function PublicOrganizerBookingForm({
             </FormField>
           </div>
 
-          <div className="grid gap-5 md:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2">
             <FormField
               label="Ticket Tier"
               error={form.formState.errors.ticketTierId?.message}
-              htmlFor="public-booking-ticket-tier"
+              htmlFor="user-booking-ticket-tier"
               required
-              description={
-                selectedEventTiers.length
-                  ? 'Choose an available ticket tier for this event.'
-                  : 'No ticket tiers are currently available for this event.'
-              }
+              description={selectedEventTiers.length === 0 ? 'No ticket tiers are available.' : undefined}
             >
               <Select
-                id="public-booking-ticket-tier"
+                id="user-booking-ticket-tier"
                 disabled={!selectedEventTiers.length || mutation.isPending}
                 {...form.register('ticketTierId', { valueAsNumber: true })}
               >
@@ -288,7 +280,7 @@ export function PublicOrganizerBookingForm({
             <FormField
               label="Quantity"
               error={form.formState.errors.quantity?.message}
-              htmlFor="public-booking-quantity"
+              htmlFor="user-booking-quantity"
               required
               description={
                 selectedTierAvailable === null
@@ -297,7 +289,7 @@ export function PublicOrganizerBookingForm({
               }
             >
               <Input
-                id="public-booking-quantity"
+                id="user-booking-quantity"
                 type="number"
                 min={1}
                 max={selectedTierAvailable ?? undefined}
@@ -307,127 +299,68 @@ export function PublicOrganizerBookingForm({
             </FormField>
           </div>
 
-          <div className="grid gap-5 md:grid-cols-3">
-            <FormField
-              label="Full Name"
-              error={form.formState.errors.fullName?.message}
-              htmlFor="public-booking-name"
-              required={!isAuthenticated}
-              description={isAuthenticated ? 'Filled from your account' : undefined}
-            >
-              <Input
-                id="public-booking-name"
-                autoComplete="name"
-                disabled={isAuthenticated || mutation.isPending}
-                placeholder="Your full name"
-                {...form.register('fullName')}
-              />
-            </FormField>
-
-            <FormField
-              label="Email"
-              error={form.formState.errors.email?.message}
-              htmlFor="public-booking-email"
-              required={!isAuthenticated}
-              description={isAuthenticated ? 'Filled from your account' : undefined}
-            >
-              <Input
-                id="public-booking-email"
-                autoComplete="email"
-                disabled={isAuthenticated || mutation.isPending}
-                placeholder="you@example.com"
-                type="email"
-                {...form.register('email')}
-              />
-            </FormField>
-
-            <FormField
-              label="Phone"
-              error={form.formState.errors.phone?.message}
-              htmlFor="public-booking-phone"
-              required={!isAuthenticated}
-              description={isAuthenticated ? 'Recommended for confirmation updates' : undefined}
-            >
-              <Input
-                id="public-booking-phone"
-                autoComplete="tel"
-                disabled={mutation.isPending}
-                placeholder="+1 (555) 123-4567"
-                type="tel"
-                {...form.register('phone')}
-              />
-            </FormField>
-          </div>
-
-          <FormField
-            label="Notes"
-            error={form.formState.errors.notes?.message}
-            htmlFor="public-booking-notes"
-            description="Add dietary needs, accessibility requests, or other details."
-          >
-            <Textarea
-              id="public-booking-notes"
-              placeholder="Optional booking notes"
-              disabled={mutation.isPending}
-              {...form.register('notes')}
-            />
-          </FormField>
-
-          {selectedEvent ? (
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
-              <div className="flex items-start justify-between gap-4">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-slate-400">
-                    <CalendarDays className="h-4 w-4" />
-                    Selected event
-                  </div>
-                  <p className="text-lg font-semibold text-slate-900">{selectedEvent.name}</p>
-                  <p className="text-sm leading-6 text-slate-600">
-                    {selectedEvent.description || 'More details will be shared by the organizer.'}
-                  </p>
-                </div>
-                <div className="flex flex-col items-end gap-2">
-                  <Badge variant="outline">Published</Badge>
-                  {selectedTier ? (
-                    <span className="text-right text-sm font-semibold text-slate-900">
-                      {selectedTier.name}: {selectedTier.price.toLocaleString('en-US', {
-                        style: 'currency',
-                        currency: selectedTier.currency.toUpperCase(),
-                      })}
-                    </span>
-                  ) : (
-                    <span className="text-sm font-semibold text-slate-500">No tiers available</span>
-                  )}
-                </div>
+          {isAuthenticated ? (
+            <details className="rounded-xl border border-slate-200 px-4 py-3">
+              <summary className="cursor-pointer text-sm font-medium text-slate-700">
+                Add contact number or note <span className="font-normal text-slate-400">(optional)</span>
+              </summary>
+              <div className="mt-4 space-y-4">
+                <FormField
+                  label="Phone"
+                  error={form.formState.errors.phone?.message}
+                  htmlFor="user-booking-phone"
+                  description="Recommended for confirmation updates"
+                >
+                  <Input
+                    id="user-booking-phone"
+                    autoComplete="tel"
+                    disabled={mutation.isPending}
+                    placeholder="+1 (555) 123-4567"
+                    type="tel"
+                    {...form.register('phone')}
+                  />
+                </FormField>
+                <FormField
+                  label="Notes"
+                  error={form.formState.errors.notes?.message}
+                  htmlFor="user-booking-notes"
+                  description="Add dietary needs, accessibility requests, or other details."
+                >
+                  <Textarea
+                    id="user-booking-notes"
+                    placeholder="Optional booking notes"
+                    disabled={mutation.isPending}
+                    {...form.register('notes')}
+                  />
+                </FormField>
               </div>
-            </div>
+            </details>
           ) : null}
 
-          <footer className="flex items-center justify-between gap-3 pt-2">
-            <div className="flex items-center gap-2 text-xs text-slate-500">
-              <Clock3 className="h-4 w-4" />
-              Continue to secure checkout
-            </div>
-            <Button type="submit" disabled={!canSubmit}>
+          <footer className="border-t border-slate-100 pt-3">
+            {isAuthenticated ? (
+              <Button type="submit" disabled={!canSubmit} className="w-full">
               {mutation.isPending ? (
                 <span className="flex items-center gap-2">
                   <Spinner size="sm" />
-                  Redirecting...
+                  Submitting...
                 </span>
               ) : (
                 <span className="flex items-center gap-2">
                   <Mail className="h-4 w-4" />
-                  Continue to payment
+                  Submit booking
                 </span>
               )}
-            </Button>
+              </Button>
+            ) : (
+              <Link href={loginHref as Route} className={cn(buttonVariants({ size: 'lg' }), 'w-full')}>
+                <UserCircle2 className="h-4 w-4" />
+                Sign in to book
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            )}
           </footer>
         </form>
-
-        <div className="flex items-center gap-2 text-xs text-slate-400">
-          <Phone className="h-4 w-4" />
-          Payment confirmation and ticket issuance happen only after Stripe confirms payment.
-        </div>
       </CardContent>
     </Card>
   )
