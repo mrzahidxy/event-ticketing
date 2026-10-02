@@ -1,7 +1,6 @@
 import { BookingStatus, Prisma, Role } from '@prisma/client';
 
 import {
-  CreateBookingInput,
   CreatePublicBookingInput,
   UpdateBookingInput,
   ListBookingsQuery,
@@ -845,60 +844,6 @@ export const bookingService = {
 
     if (cache.isConnectedToRedis()) {
       await cache.set(cacheKey, booking, BOOKING_CACHE_TTL_SECONDS);
-    }
-
-    return booking;
-  },
-
-  createProtectedBooking: async (input: CreateBookingInput, user: AuthenticatedUser) => {
-    const event = await prisma.event.findUnique({
-      where: { id: input.eventId },
-      select: {
-        id: true,
-        organizerId: true,
-        isPublished: true,
-      },
-    });
-
-    if (!event) {
-      throw new HttpError(404, 'Event not found');
-    }
-
-    if (user.role === Role.OWNER || user.role === Role.STAFF) {
-      const organizerScope = await resolveOrganizerTenantScope({ prisma }, user, {
-        allowAdminPlatform: false,
-        ownerNoOrganizerMessage: 'Owner bookings require an owned organizer',
-        staffNoAssignmentsMessage: 'Staff bookings require at least one organizer assignment',
-        forbiddenMessage: 'You do not have permission to create bookings for this organizer',
-      });
-
-      if (!organizerScope.organizerIds.includes(event.organizerId)) {
-        throw new HttpError(403, 'You do not have permission to create bookings for this organizer');
-      }
-    }
-
-    if (user.role === Role.USER && !event.isPublished) {
-      throw new HttpError(403, 'You are not allowed to book an unpublished event');
-    }
-
-    const fullName = input.fullName?.trim() || user.name?.trim() || user.email;
-    const email = user.role === Role.USER ? user.email : input.email?.trim() || user.email;
-    const phone = input.phone?.trim() || null;
-
-    const { booking } = await createBookingWithTier({
-      eventId: input.eventId,
-      ticketTierId: input.ticketTierId,
-      quantity: input.quantity,
-      userId: user.id,
-      fullName,
-      email,
-      phone,
-      notes: input.notes ?? null,
-      requirePublished: user.role === Role.USER,
-    });
-
-    if (cache.isConnectedToRedis()) {
-      await invalidateBookingCollections(user.id);
     }
 
     return booking;

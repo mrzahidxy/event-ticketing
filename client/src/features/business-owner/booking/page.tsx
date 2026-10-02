@@ -99,7 +99,6 @@ export default function BookingDetailPage({ bookingId: bookingIdProp }: BookingD
       </div>
 
       <BookingForm
-        mode="edit"
         defaultValues={
           booking
             ? {

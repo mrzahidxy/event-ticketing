@@ -88,23 +88,6 @@ export const bookingController = {
     res.status(200).json(successResponse(booking));
   },
 
-  create: async (req: AuthenticatedRequest, res: Response) => {
-    const booking = await bookingService.createProtectedBooking(req.body, req.user!);
-    res.status(201).json(
-      successResponse(
-        {
-          id: booking.id,
-          eventId: booking.eventId,
-          subtotalAmount: booking.subtotalAmount,
-          totalAmount: booking.totalAmount,
-          currency: booking.currency,
-          status: booking.status,
-        },
-        { message: 'Booking created successfully' }
-      )
-    );
-  },
-
   update: async (req: AuthenticatedRequest, res: Response) => {
     const bookingId = Number(req.params.id);
     const booking = await bookingService.update(bookingId, req.body, req.user!);

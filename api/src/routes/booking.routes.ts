@@ -6,7 +6,6 @@ import { requireAuth } from '../middleware/auth.middleware';
 import { validateRequest } from '../middleware/validation.middleware';
 import {
   bookingIdParamSchema,
-  createBookingSchema,
   updateBookingSchema,
   listBookingsQuerySchema,
   userBookingHistoryQuerySchema,
@@ -24,8 +23,6 @@ router.get(
 );
 
 router.get('/:id', requireAuth(),  validateRequest(bookingIdParamSchema, 'params'), bookingController.getById);
-
-router.post('/', requireAuth(), validateRequest(createBookingSchema), bookingController.create);
 
 router.patch(
   '/:id',
