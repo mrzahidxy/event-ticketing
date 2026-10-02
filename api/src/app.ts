@@ -38,6 +38,7 @@ const limiterOptions: Partial<RateLimitOptions> & { trustProxy?: boolean } = {
   },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => req.method === 'POST' && req.path === '/api/tickets/check-in',
   trustProxy: Boolean(trustProxySetting),
 };
 
