@@ -1,4 +1,4 @@
-import { Role } from '@prisma/client';
+﻿import { Role } from '@prisma/client';
 import rateLimit from 'express-rate-limit';
 import { Router } from 'express';
 
@@ -27,7 +27,5 @@ router.use(
 router.get('/overview', validateRequest(analyticsQuerySchema, 'query'), analyticsController.overview);
 router.get('/bookings', validateRequest(analyticsQuerySchema, 'query'), analyticsController.bookings);
 router.get('/payments', validateRequest(analyticsQuerySchema, 'query'), analyticsController.payments);
-router.get('/events', validateRequest(analyticsQuerySchema, 'query'), analyticsController.events);
-router.get('/users', validateRequest(analyticsQuerySchema, 'query'), analyticsController.users);
 
 export default router;

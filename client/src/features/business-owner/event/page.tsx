@@ -18,7 +18,7 @@ import {
   listOrganizerEvents,
   updateOrganizerEvent,
 } from '../team/api/organizer-client'
-import { resolveOrganizerScopeId } from '../analytics/utils'
+import { resolveOrganizerScopeId } from '../organizer-scope'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { FormField } from '@/components/ui/form-field'

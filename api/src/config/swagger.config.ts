@@ -1577,62 +1577,6 @@ const analyticsPaths: OAS3Definition['paths'] = {
       },
     },
   },
-  '/analytics/events': {
-    get: {
-      summary: 'Get event analytics',
-      tags: ['Analytics'],
-      description:
-        'Returns event counts, publication breakdowns, average pricing, and popular events by booking volume.',
-      security: [
-        {
-          bearerAuth: [],
-        },
-      ],
-      parameters: analyticsQueryParameters,
-      responses: {
-        200: {
-          description: 'Event analytics retrieved successfully',
-        },
-        400: {
-          description: 'Validation error',
-        },
-        401: {
-          description: 'Unauthorized',
-        },
-        403: {
-          description: 'Forbidden',
-        },
-      },
-    },
-  },
-  '/analytics/users': {
-    get: {
-      summary: 'Get user and staff analytics',
-      tags: ['Analytics'],
-      description:
-        'Returns scoped user totals, registration trends, active users by role, and staff performance metrics.',
-      security: [
-        {
-          bearerAuth: [],
-        },
-      ],
-      parameters: analyticsQueryParameters,
-      responses: {
-        200: {
-          description: 'User analytics retrieved successfully',
-        },
-        400: {
-          description: 'Validation error',
-        },
-        401: {
-          description: 'Unauthorized',
-        },
-        403: {
-          description: 'Forbidden',
-        },
-      },
-    },
-  },
 };
 
 const swaggerDefinition: OAS3Definition = {

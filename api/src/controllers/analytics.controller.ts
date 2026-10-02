@@ -1,4 +1,4 @@
-import { Response } from 'express';
+﻿import { Response } from 'express';
 
 import type { AnalyticsQueryInput } from '../schemas/analytics.schema';
 import { analyticsService } from '../services/analytics.service';
@@ -34,15 +34,4 @@ export const analyticsController = {
     res.status(200).json(successResponse(analytics));
   },
 
-  events: async (req: AuthenticatedRequest, res: Response) => {
-    const analytics = await analyticsService.getEventAnalytics(req.user!, getAnalyticsQuery(req));
-    applyAnalyticsCachingHeaders(res);
-    res.status(200).json(successResponse(analytics));
-  },
-
-  users: async (req: AuthenticatedRequest, res: Response) => {
-    const analytics = await analyticsService.getUserAnalytics(req.user!, getAnalyticsQuery(req));
-    applyAnalyticsCachingHeaders(res);
-    res.status(200).json(successResponse(analytics));
-  },
 };

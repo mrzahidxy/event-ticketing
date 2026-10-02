@@ -1,4 +1,4 @@
-export const RANGE_OPTIONS = [
+﻿export const RANGE_OPTIONS = [
   { label: 'Last 7 days', value: '7d' },
   { label: 'Last 30 days', value: '30d' },
 ] as const
@@ -58,11 +58,6 @@ export type AnalyticsPaymentStatusMetric = {
   revenue: number
 }
 
-export type AnalyticsRoleMetric = {
-  role: string
-  count: number
-}
-
 export type AnalyticsOverviewEvent = {
   eventId: string
   eventName: string
@@ -95,38 +90,8 @@ export type AnalyticsPaymentSummary = {
   revenueByStatus: AnalyticsPaymentStatusMetric[]
 }
 
-export type AnalyticsUserSummary = {
-  totalScopedUsers: number
-  registrationsInRange: number
-  activeUsersByRole: AnalyticsRoleMetric[]
-}
-
 export type AnalyticsTopEventPage = {
   data: AnalyticsOverviewEvent[]
-  meta: AnalyticsPaginationMeta
-}
-
-export type AnalyticsEventByOrganizer = {
-  organizerId: string
-  organizerName: string
-  totalEvents: number
-  publishedEvents: number
-  unpublishedEvents: number
-  averagePrice: number
-}
-
-export type AnalyticsStaffPerformance = {
-  userId: number
-  email: string
-  name: string | null
-  assignedOrganizerCount: number
-  latestAssignmentAt: string | null
-  bookingCount: number
-  revenue: number
-}
-
-export type AnalyticsStaffPage = {
-  data: AnalyticsStaffPerformance[]
   meta: AnalyticsPaginationMeta
 }
 
@@ -136,7 +101,6 @@ export type AnalyticsOverviewResponse = {
   bookingSummary: AnalyticsBookingSummary
   paymentSummary: AnalyticsPaymentSummary
   eventSummary: AnalyticsEventSummary
-  userSummary: AnalyticsUserSummary
   topEvents: AnalyticsOverviewEvent[]
 }
 
@@ -153,22 +117,6 @@ export type AnalyticsPaymentsResponse = {
   dateRange: AnalyticsDateRange
   summary: AnalyticsPaymentSummary
   trends: AnalyticsTrendPoint[]
-}
-
-export type AnalyticsEventsResponse = {
-  scope: AnalyticsScope
-  dateRange: AnalyticsDateRange
-  summary: AnalyticsEventSummary
-  eventsByOrganizer: AnalyticsEventByOrganizer[]
-  popularEvents: AnalyticsTopEventPage
-}
-
-export type AnalyticsUsersResponse = {
-  scope: AnalyticsScope
-  dateRange: AnalyticsDateRange
-  summary: AnalyticsUserSummary
-  registrationTrends: AnalyticsTrendPoint[]
-  staffPerformance: AnalyticsStaffPage
 }
 
 export type TrendChartPoint = {

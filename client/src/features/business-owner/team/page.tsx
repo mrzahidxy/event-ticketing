@@ -24,7 +24,7 @@ import { FormField } from '@/components/ui/form-field'
 import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/ui/spinner'
 import { formatRelativeDate } from '@/lib/format'
-import { resolveOrganizerScopeId } from '@/features/business-owner/analytics/utils'
+import { resolveOrganizerScopeId } from '@/features/business-owner/organizer-scope'
 
 function getErrorMessage(error: unknown, fallback: string) {
   if (error instanceof Error && error.message.trim()) {

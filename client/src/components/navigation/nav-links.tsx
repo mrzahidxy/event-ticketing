@@ -2,7 +2,6 @@
 
 import type { LucideIcon } from 'lucide-react'
 import {
-  BarChart3,
   CalendarDays,
   LayoutDashboard,
   MenuSquare,
@@ -37,11 +36,6 @@ const baseNavigation: NavItem[] = [
     href: '/business-owner/event',
     label: 'Events',
     icon: CalendarDays,
-  },
-  {
-    href: '/business-owner/analytics',
-    label: 'Analytics',
-    icon: BarChart3,
   },
   {
     href: '/business-owner/team',
