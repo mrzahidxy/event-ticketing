@@ -52,6 +52,7 @@ type DataTableProps<TData, TValue> = {
   emptyMessage?: React.ReactNode
   isLoading?: boolean
   enableColumnVisibility?: boolean
+  enableRowSelection?: boolean
   manualPagination?: boolean
   pageCount?: number
   pagination?: PaginationControls
@@ -68,6 +69,7 @@ export function DataTable<TData, TValue>({
   emptyMessage = 'No results found.',
   isLoading = false,
   enableColumnVisibility = false,
+  enableRowSelection = true,
   manualPagination = false,
   pageCount,
   pagination,
@@ -126,7 +128,7 @@ export function DataTable<TData, TValue>({
       rowSelection,
       pagination: resolvedPagination,
     },
-    enableRowSelection: true,
+    enableRowSelection,
     onSortingChange: handleSortingChange,
     onPaginationChange: handlePaginationChange,
     onColumnFiltersChange: setColumnFilters,
@@ -172,7 +174,7 @@ export function DataTable<TData, TValue>({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-4">
           {toolbar}
-          <span className="text-sm text-slate-500">{selectionMessage}</span>
+          {enableRowSelection ? <span className="text-sm text-slate-500">{selectionMessage}</span> : null}
         </div>
 
         {enableColumnVisibility ? (

@@ -102,6 +102,8 @@ export const createUserDefaultValues: CreateUserFormValues = {
 
 export function useUsersTable() {
   const queryClient = useQueryClient()
+  const [pageIndex, setPageIndex] = useState(0)
+  const [pageSize, setPageSize] = useState(10)
   const { data: session } = useSession()
 
   const [{ searchQuery, statusFilter, isCreateOpen, dialog }, setState] =
@@ -119,7 +121,7 @@ export function useUsersTable() {
   const deferredSearch = useDeferredValue(searchQuery)
 
   const apiFilters = useMemo<Partial<UserListFilters>>(() => {
-    const filters: Partial<UserListFilters> = {}
+    const filters: Partial<UserListFilters> = { page: pageIndex + 1, limit: pageSize }
 
     if (deferredSearch.trim()) {
       filters.search = deferredSearch.trim()
@@ -132,7 +134,7 @@ export function useUsersTable() {
     }
 
     return filters
-  }, [deferredSearch, statusFilter])
+  }, [deferredSearch, statusFilter, pageIndex, pageSize])
 
   const hasShownError = useRef(false)
 
@@ -212,25 +214,17 @@ export function useUsersTable() {
     [data?.users]
   )
 
-  const filteredUsers = useMemo(() => {
-    const normalizedQuery = searchQuery.toLowerCase()
-    return directoryUsers.filter((user) => {
-      const matchesSearch =
-        !normalizedQuery ||
-        user.email.toLowerCase().includes(normalizedQuery) ||
-        user.business.toLowerCase().includes(normalizedQuery)
-
-      const matchesStatus =
-        statusFilter === 'All' || user.statusLabel === statusFilter
-
-      return matchesSearch && matchesStatus
-    })
-  }, [directoryUsers, searchQuery, statusFilter])
+  useEffect(() => {
+    if (data?.meta && !isFetching) {
+      setPageIndex((current) => Math.min(current, Math.max(0, (data.meta?.totalPages ?? 1) - 1)))
+    }
+  }, [data?.meta, isFetching])
 
   const isInitialLoading = isLoading && !data
   const isMutatingAction = statusMutation.isPending || deleteMutation.isPending
 
   const setSearchQuery = useCallback((value: string) => {
+    setPageIndex(0)
     setState((prev) => ({
       ...prev,
       searchQuery: value,
@@ -238,6 +232,7 @@ export function useUsersTable() {
   }, [])
 
   const setStatusFilter = useCallback((value: StatusFilterOption) => {
+    setPageIndex(0)
     setState((prev) => ({
       ...prev,
       statusFilter: value,
@@ -367,7 +362,11 @@ export function useUsersTable() {
   const closeCreateModal = useCallback(() => handleCreateOpenChange(false), [handleCreateOpenChange])
 
   return {
-    rows: filteredUsers,
+    rows: directoryUsers,
+    pageIndex,
+    pageSize,
+    setPageIndex,
+    setPageSize: (value: number) => { setPageIndex(0); setPageSize(value) },
     rawUsers: directoryUsers,
     meta: data?.meta,
     isInitialLoading,

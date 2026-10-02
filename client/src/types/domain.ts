@@ -1,4 +1,3 @@
-import type { UserPermission } from '@/types/user'
 
 export type Organizer = {
   id: string
@@ -89,10 +88,4 @@ export type UploadRecord = {
   uploadedBy: string
   uploadedAt: string
   url: string
-}
-
-export type RbacRoleDefinition = {
-  role: string
-  description: string
-  permissions: UserPermission[]
 }

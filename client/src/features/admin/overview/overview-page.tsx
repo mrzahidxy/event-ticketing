@@ -1,6 +1,9 @@
 "use client";
 
 import type { LucideIcon } from 'lucide-react'
+import Link from 'next/link'
+import type { Route } from 'next'
+import { buttonVariants } from '@/components/ui/button'
 import { Activity, Building2, CalendarRange, DollarSign, Receipt, Users } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
@@ -39,7 +42,7 @@ export function OverviewPage() {
       trend: `${data?.status.suspendedOrganizers ?? 0} suspended`,
     },
     {
-      title: 'Active Users',
+      title: 'Registered Users',
       value: formatCompactNumber(data?.metrics.activeUsers ?? 0),
       icon: Users,
       trend: data?.highlights.activeUsersLabel || 'No user activity yet',
@@ -203,7 +206,10 @@ export function OverviewPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Recent System Activity</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Recent System Activity</CardTitle>
+            <Link href={'/admin/activity' as Route} className={buttonVariants({ variant: 'outline' })}>See more activity</Link>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">

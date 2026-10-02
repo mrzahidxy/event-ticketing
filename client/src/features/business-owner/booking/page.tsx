@@ -3,10 +3,8 @@
 import { useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Loader2 } from 'lucide-react'
-import { useParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { HttpError } from '@/lib/errors'
-import { formatDate } from '@/lib/format'
 import { getBookingById } from './api/booking-client'
 import { resourceKeys } from './api/booking-keys'
 import { BookingForm } from './components/booking-form'
@@ -25,14 +23,11 @@ function getBookingLoadErrorMessage(error: unknown) {
   return 'Failed to load booking data'
 }
 
-type BookingDetailPageProps = {
-  bookingId?: string
+type BookingUpdatePanelProps = {
+  bookingId: string
 }
 
-export default function BookingDetailPage({ bookingId: bookingIdProp }: BookingDetailPageProps = {}) {
-  const params = useParams<{ bookingId?: string }>()
-  const bookingId = bookingIdProp ?? params?.bookingId
-  const resolvedBookingId = bookingId ?? ''
+export default function BookingUpdatePanel({ bookingId }: BookingUpdatePanelProps) {
   const hasShownError = useRef(false)
 
   const {
@@ -40,9 +35,8 @@ export default function BookingDetailPage({ bookingId: bookingIdProp }: BookingD
     isLoading,
     error,
   } = useQuery({
-    queryKey: resourceKeys.detail(resolvedBookingId),
-    queryFn: () => getBookingById(resolvedBookingId),
-    enabled: Boolean(bookingId),
+    queryKey: resourceKeys.detail(bookingId),
+    queryFn: () => getBookingById(bookingId),
   })
 
   useEffect(() => {
@@ -64,7 +58,7 @@ export default function BookingDetailPage({ bookingId: bookingIdProp }: BookingD
 
   if (isLoading) {
     return (
-      <div className="flex h-64 items-center justify-center">
+      <div className="flex h-36 items-center justify-center">
         <Loader2
           className="h-6 w-6 animate-spin text-slate-500"
           aria-label="Loading..."
@@ -74,41 +68,24 @@ export default function BookingDetailPage({ bookingId: bookingIdProp }: BookingD
   }
 
   return (
-    <div className="space-y-8">
-      <div className="rounded-2xl border p-6 shadow-soft">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold">
-              {booking?.eventName ?? 'Booking'}
-            </h1>
-            <p className="mt-2 text-sm text-slate-400">
-              {booking ? (
-                <>
-                  Status:{' '}
-                  <span className="font-medium text-slate-200">
-                    {booking.status}
-                  </span>{' '}
-                  - Last updated {formatDate(booking.updatedAt)}
-                </>
-              ) : (
-                'Booking details unavailable.'
-              )}
-            </p>
-          </div>
-        </div>
+    <div className="space-y-5 p-5 sm:p-6">
+      <div>
+        <h2 className="text-lg font-semibold">
+          Update booking
+        </h2>
+        <p className="mt-1 text-sm text-slate-500">
+          {booking?.eventName ?? 'Booking'}
+          {booking ? ` | Current status: ${booking.status.toLowerCase()}` : ''}
+        </p>
       </div>
-
-      <BookingForm
-        mode="edit"
-        defaultValues={
-          booking
-            ? {
-                status: booking.status,
-              }
-            : undefined
-        }
-        bookingId={booking?.id?.toString() ?? (bookingId ?? '')}
-      />
+      {booking ? (
+          <BookingForm
+            defaultValues={{ status: booking.status }}
+            bookingId={booking.id.toString()}
+          />
+      ) : (
+        <p className="text-sm text-slate-500">Booking details unavailable.</p>
+      )}
     </div>
   )
 }

@@ -214,7 +214,7 @@ const toPublicEventResponse = (event: PublicEventDetail): PublicEventResponse =>
 
 export const organizerService = {
   create: async (
-    input: { name: string; ownerId?: number },
+    input: { name: string; ownerId?: number; status?: 'active' | 'suspended' },
     actor: AuthenticatedUser
   ): Promise<OrganizerDetail> => {
     if (actor.role !== Role.ADMIN && actor.role !== Role.OWNER) {
@@ -223,6 +223,10 @@ export const organizerService = {
 
     if (actor.role === Role.ADMIN && !input.ownerId) {
       throw new HttpError(400, 'ownerId is required when creating an organizer as an admin');
+    }
+
+    if (actor.role !== Role.ADMIN && input.status === 'suspended') {
+      throw new HttpError(403, 'Only admins can create suspended organizers');
     }
 
     const ownerId = input.ownerId ?? actor.id;
@@ -257,6 +261,8 @@ export const organizerService = {
       data: {
         name: input.name,
         ownerId,
+        isSuspended: input.status === 'suspended',
+        suspendedAt: input.status === 'suspended' ? new Date() : null,
       },
       select: ORGANIZER_SELECT,
     });
@@ -402,7 +408,7 @@ export const organizerService = {
         "isSuspended" = ${status === 'suspended'},
         "suspendedAt" = ${suspendedAt},
         "updatedAt" = NOW()
-      WHERE id = ${organizerId}
+      WHERE id = ${organizerId}::uuid
       RETURNING
         id,
         name,

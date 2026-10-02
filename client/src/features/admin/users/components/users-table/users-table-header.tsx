@@ -27,13 +27,13 @@ export function UsersTableHeader({
   onStatusFilterChange,
 }: UsersTableHeaderProps) {
   return (
-    <div className="flex flex-1 flex-wrap items-center gap-4">
-      <div className="relative w-full max-w-sm">
+    <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center">
+      <div className="relative w-full sm:w-80 lg:w-96">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           value={searchQuery}
           onChange={(event) => onSearchChange(event.target.value)}
-          placeholder="Search by email or organizer..."
+          placeholder="Search by email, name or organizer..."
           className="pl-10"
         />
       </div>
@@ -41,7 +41,7 @@ export function UsersTableHeader({
         value={statusFilter}
         onValueChange={(value: StatusFilterOption) => onStatusFilterChange(value)}
       >
-        <SelectTrigger className="w-full sm:w-44">
+        <SelectTrigger className="w-full shrink-0 rounded-lg data-[size=default]:h-10 sm:w-44">
           <SelectValue placeholder="Filter by status" />
         </SelectTrigger>
         <SelectContent>

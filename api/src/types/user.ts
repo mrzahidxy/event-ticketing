@@ -11,6 +11,7 @@ export interface AuthenticatedUser {
 }
 
 export type SanitizedUser = AuthenticatedUser & {
+  status?: string;
   createdAt?: Date;
   organizerName?: string | null;
   updatedAt?: Date;

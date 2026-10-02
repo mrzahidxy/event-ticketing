@@ -23,6 +23,7 @@ export const ticketTierIdParamSchema = z.object({
 export const createOrganizerSchema = z.object({
   name: z.string().min(1, 'Organizer name is required'),
   ownerId: z.coerce.number().int().positive().optional(),
+  status: z.enum(['active', 'suspended']).optional(),
 });
 
 export const updateOrganizerSchema = z.object({

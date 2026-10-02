@@ -8,6 +8,7 @@ import { z } from 'zod'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Modal } from '@/components/ui/modal'
 import {
   Select,
   SelectContent,
@@ -15,15 +16,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/features/admin/components/ui/select'
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from '@/features/admin/components/ui/sheet'
-
 import type { AdminUserRole } from '../../api/user-client'
 import { ROLE_OPTIONS } from './constants'
 import type { CreateUserFormValues } from './types'
@@ -83,17 +75,15 @@ export function UserModal({
   const roleError = form.formState.errors.role?.message
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-md">
-        <SheetHeader className="p-4 pb-0">
-          <SheetTitle>Create user</SheetTitle>
-          <SheetDescription>
-            Provision a new account and assign the appropriate role.
-          </SheetDescription>
-        </SheetHeader>
-
-        <form onSubmit={handleSubmit} className="flex h-full flex-col">
-          <div className="flex-1 space-y-4 p-4">
+    <Modal
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Create user"
+      description="Provision a new account and assign the appropriate role."
+      className="max-h-[90dvh] overflow-y-auto"
+    >
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-4">
             <FormField label="Full name" error={form.formState.errors.name?.message}>
               <Input
                 autoComplete="name"
@@ -150,8 +140,11 @@ export function UserModal({
             </div>
           </div>
 
-          <SheetFooter className="bg-slate-50">
-            <Button type="submit" className="w-full" disabled={isSubmitting || !canManage}>
+          <div className="flex justify-end gap-3">
+            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isSubmitting || !canManage}>
               {isSubmitting ? (
                 <span className="flex items-center justify-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -161,10 +154,9 @@ export function UserModal({
                 'Create user'
               )}
             </Button>
-          </SheetFooter>
+          </div>
         </form>
-      </SheetContent>
-    </Sheet>
+    </Modal>
   )
 }
 

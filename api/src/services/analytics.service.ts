@@ -140,7 +140,6 @@ type AnalyticsOverview = {
   bookingSummary: BookingSummary;
   paymentSummary: PaymentSummary;
   eventSummary: EventSummary;
-  userSummary: UserSummary;
   topEvents: TopEventMetric[];
 };
 
@@ -1042,7 +1041,7 @@ export const createAnalyticsService = (deps: AnalyticsServiceDependencies) => {
             }
           };
 
-          const [bookingSummary, paymentSummary, eventSummary, userSummary, topEvents] =
+          const [bookingSummary, paymentSummary, eventSummary, topEvents] =
             await Promise.all([
               safeResolve('bookingSummary', emptyBookingSummary(), () =>
                 helpers.getBookingSummary(scope, query)
@@ -1052,9 +1051,6 @@ export const createAnalyticsService = (deps: AnalyticsServiceDependencies) => {
               ),
               safeResolve('eventSummary', emptyEventSummary(), () =>
                 helpers.getEventSummary(scope, query)
-              ),
-              safeResolve('userSummary', emptyUserSummary(), () =>
-                helpers.getUserSummary(scope, query)
               ),
               safeResolve('topEvents', { data: [], meta: paginatedMeta(1, query.topLimit, 0) }, () =>
                 helpers.getTopEvents(scope, query, 1, query.topLimit)
@@ -1067,7 +1063,6 @@ export const createAnalyticsService = (deps: AnalyticsServiceDependencies) => {
             bookingSummary,
             paymentSummary,
             eventSummary,
-            userSummary,
             topEvents: topEvents.data,
           };
         });

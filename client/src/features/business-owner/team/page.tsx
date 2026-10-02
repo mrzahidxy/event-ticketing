@@ -24,7 +24,7 @@ import { FormField } from '@/components/ui/form-field'
 import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/ui/spinner'
 import { formatRelativeDate } from '@/lib/format'
-import { resolveOrganizerScopeId } from '@/features/business-owner/analytics/utils'
+import { resolveOrganizerScopeId } from '@/features/business-owner/organizer-scope'
 
 function getErrorMessage(error: unknown, fallback: string) {
   if (error instanceof Error && error.message.trim()) {
@@ -190,11 +190,10 @@ export default function TeamPage() {
               </Link>
             }
           >
-            <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto]">
+            <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
               <FormField
                 label="Organizer name"
                 htmlFor="organizer-name"
-                description={`Organizer ID: ${organizerId}`}
               >
                 <Input
                   id="organizer-name"
@@ -216,6 +215,7 @@ export default function TeamPage() {
               <Badge variant={organizer?.status === 'ACTIVE' ? 'success' : 'outline'}>
                 {organizer?.status ?? 'Unknown'}
               </Badge>
+              <span>Organizer ID: {organizerId}</span>
               <span>
                 Updated{' '}
                 {organizer?.updatedAt ? formatRelativeDate(organizer.updatedAt) : 'unknown'}
@@ -226,30 +226,30 @@ export default function TeamPage() {
           <SectionCard
             title="Organizer Staff"
             subtitle="Search USER/STAFF by email. USER accounts become STAFF when assigned."
-            actions={
-              canManageStaff ? (
-                <div className="flex items-end gap-3">
-                  <div className="min-w-[220px] space-y-2">
+          >
+            <div className="space-y-4">
+              {canManageStaff ? (
+                <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                  <FormField label="User email" htmlFor="staff-candidate-email">
                     <Input
+                      id="staff-candidate-email"
                       value={candidateEmail}
                       onChange={(event) => setCandidateEmail(event.target.value)}
-                      placeholder="Type user email"
+                      placeholder="name@example.com"
                       type="email"
                       disabled={addStaffMutation.isPending}
                     />
-                  </div>
+                  </FormField>
                   <Button
                     onClick={handleAddStaff}
                     disabled={addStaffMutation.isPending || !candidateSearch}
+                    className="w-full sm:w-auto"
                   >
                     <UserPlus className="mr-2 h-4 w-4" />
                     Add staff
                   </Button>
                 </div>
-              ) : null
-            }
-          >
-            <div className="space-y-4">
+              ) : null}
               {canManageStaff && candidateSearch.length > 0 && candidateSearch.length < 2 ? (
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm text-slate-600">
                   Enter at least 2 characters of the user email to search.

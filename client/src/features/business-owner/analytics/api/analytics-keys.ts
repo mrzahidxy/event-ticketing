@@ -1,4 +1,4 @@
-import type { AnalyticsQueryParams } from '../types'
+﻿import type { AnalyticsQueryParams } from '../types'
 
 function queryKeyParts(query?: AnalyticsQueryParams) {
   return [
@@ -20,8 +20,4 @@ export const analyticsKeys = {
     ['analytics', 'bookings', ...queryKeyParts(query)] as const,
   payments: (query?: AnalyticsQueryParams) =>
     ['analytics', 'payments', ...queryKeyParts(query)] as const,
-  events: (query?: AnalyticsQueryParams) =>
-    ['analytics', 'events', ...queryKeyParts(query)] as const,
-  users: (query?: AnalyticsQueryParams) =>
-    ['analytics', 'users', ...queryKeyParts(query)] as const,
 }

@@ -1,35 +1,6 @@
 import { BookingStatus } from '@prisma/client';
 import { z } from 'zod';
 
-export const createBookingSchema = z.object({
-  eventId: z.string().uuid('Event ID must be a valid UUID'),
-  ticketTierId: z.coerce.number().int().positive('Ticket tier ID must be a positive integer'),
-  quantity: z.coerce.number().int().positive('Quantity must be at least 1'),
-  fullName: z.preprocess(
-    (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
-    z.string().trim().min(1, 'Full name is required').max(100, 'Full name is too long').optional()
-  ),
-  email: z.preprocess(
-    (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
-    z.string().trim().email('A valid email address is required').optional()
-  ),
-  phone: z.preprocess(
-    (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
-    z
-      .string()
-      .trim()
-      .regex(
-        /^[0-9+\-()\s]{7,24}$/,
-        'Phone number must be 7-24 characters and contain only digits or common phone symbols'
-      )
-      .optional()
-  ),
-  notes: z.preprocess(
-    (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
-    z.string().trim().max(1000, 'Notes must be 1000 characters or fewer').optional()
-  ),
-});
-
 export const createPublicBookingSchema = z.object({
   eventId: z.string().uuid('Event ID must be a valid UUID'),
   ticketTierId: z.coerce.number().int().positive('Ticket tier ID must be a positive integer'),
@@ -128,7 +99,6 @@ export const bookingIdParamSchema = z.object({
     .transform((value) => Number(value)),
 });
 
-export type CreateBookingInput = z.infer<typeof createBookingSchema>;
 export type CreatePublicBookingInput = z.infer<typeof createPublicBookingSchema>;
 export type UpdateBookingInput = z.infer<typeof updateBookingSchema>;
 export type ListBookingsQuery = z.infer<typeof listBookingsQuerySchema>;

@@ -6,10 +6,8 @@ import type {
   PaymentRecord,
   PaymentStatus,
   TicketTier,
-  RbacRoleDefinition,
   UploadRecord,
 } from '@/types/domain'
-import type { UserPermission } from '@/types/user'
 
 type UserLikeRecord = {
   createdAt: string
@@ -333,6 +331,7 @@ export function normalizeBooking(payload: unknown): Booking {
   )
 
   return {
+    bookingDate: toStringValue(record?.bookingDate) || undefined,
     bookingTime: toStringValue(record?.bookingTime) || undefined,
     checkIn: toStringValue(record?.checkIn ?? record?.bookingDate),
     checkOut: toStringValue(record?.checkOut ?? record?.bookingDate),
@@ -460,39 +459,4 @@ export function normalizeUploadRecord(payload: unknown): UploadRecord {
     uploadedBy: toStringValue(record?.uploadedBy ?? record?.userId),
     url: toStringValue(record?.url),
   }
-}
-
-export function normalizeRbacRoleDefinitions(payload: unknown): RbacRoleDefinition[] {
-  const root = unwrapData(payload) ?? payload
-  const arrayPayload = extractList(root, ['roles', 'definitions'], (value) => value)
-
-  if (arrayPayload.length) {
-    return arrayPayload.map((entry) => {
-      const record = toObject(entry)
-
-      return {
-        description: toStringValue(record?.description, 'No description available'),
-        permissions: extractList(
-          record?.permissions,
-          ['permissions'],
-          (permission) => toStringValue(permission) as UserPermission,
-        ),
-        role: toStringValue(record?.role),
-      }
-    })
-  }
-
-  const record = toObject(root)
-
-  if (!record) {
-    return []
-  }
-
-  return Object.entries(record).map(([role, permissions]) => ({
-    description: `${role} permissions`,
-    permissions: toArray(permissions).map(
-      (permission) => toStringValue(permission) as UserPermission,
-    ),
-    role,
-  }))
 }

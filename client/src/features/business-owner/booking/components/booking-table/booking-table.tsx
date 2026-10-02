@@ -10,7 +10,7 @@ import type { PaginatedResult, Booking } from '@/types/booking'
 import { BookingTableHeader } from './booking-table-header'
 import { createBookingColumns } from './columns'
 import { useBookingTable } from './use-booking-table'
-import BookingDetailPage from '../../page'
+import BookingUpdatePanel from '../../page'
 
 type BookingTableProps = {
   initialData?: PaginatedResult<Booking>
@@ -30,14 +30,10 @@ export function BookingTable({ initialData }: BookingTableProps) {
     pageSize,
     status,
     eventName,
-    checkInDate,
-    checkOutDate,
     setPage,
     setPageSize,
     setStatus,
     setEventName,
-    setCheckInDate,
-    setCheckOutDate,
     reset,
     isDeleting,
     deleteBooking,
@@ -66,12 +62,8 @@ export function BookingTable({ initialData }: BookingTableProps) {
       <BookingTableHeader
         status={status}
         eventName={eventName}
-        checkInDate={checkInDate}
-        checkOutDate={checkOutDate}
         onStatusChange={setStatus}
         onEventNameChange={setEventName}
-        onCheckInDateChange={setCheckInDate}
-        onCheckOutDateChange={setCheckOutDate}
         onReset={reset}
       />
 
@@ -94,12 +86,10 @@ export function BookingTable({ initialData }: BookingTableProps) {
       />
 
       <Dialog open={Boolean(editingBookingId)} onOpenChange={handleEditModalOpenChange}>
-        <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto p-0">
-          <DialogTitle className="sr-only">Edit booking</DialogTitle>
+        <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto p-0">
+          <DialogTitle className="sr-only">Update booking</DialogTitle>
           {editingBookingId ? (
-            <div className="p-6">
-              <BookingDetailPage bookingId={editingBookingId} />
-            </div>
+            <BookingUpdatePanel bookingId={editingBookingId} />
           ) : null}
         </DialogContent>
       </Dialog>

@@ -1,6 +1,6 @@
 import type { AdminUserRole, AdminUser } from '../../api/user-client'
 
-export type DialogAction = 'delete'
+export type DialogAction = 'delete' | 'suspend' | 'activate'
 
 export type DirectoryUser = {
   id: string

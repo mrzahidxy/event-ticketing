@@ -3,13 +3,14 @@
 import { useMemo, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { useQuery } from '@tanstack/react-query'
-import { Activity, Receipt, UsersRound, Wallet } from 'lucide-react'
+import { Activity, Receipt, Wallet } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Select } from '@/components/ui/select'
 import { formatCurrency } from '@/lib/format'
 import { normalizeUserRole } from '@/types/user'
+import { resolveOrganizerScopeId } from '@/features/business-owner/organizer-scope'
 
 import { ActivityList } from '../dashboard/components/activity-list'
 import { DashboardHeader } from '../dashboard/components/dashboard-header'
@@ -18,19 +19,14 @@ import { StatCard } from '../dashboard/components/stat-card'
 import { analyticsKeys } from './api/analytics-keys'
 import {
   fetchAnalyticsBookings,
-  fetchAnalyticsEvents,
   fetchAnalyticsOverview,
   fetchAnalyticsPayments,
-  fetchAnalyticsUsers,
 } from './api/analytics-client'
 import {
   getDateRange,
-  mapOrganizerEventsToActivity,
   mapPaymentStatusBreakdown,
-  mapStaffPerformanceToActivity,
   mapTopEventsToActivity,
   mapTrendPoints,
-  resolveOrganizerScopeId,
 } from './utils'
 import { RANGE_OPTIONS, type RangePreset } from './types'
 
@@ -111,25 +107,11 @@ export default function AnalyticsPage() {
     enabled: status !== 'loading' && canRequestAnalytics,
   })
 
-  const eventsQuery = useQuery({
-    queryKey: analyticsKeys.events(queryParams),
-    queryFn: () => fetchAnalyticsEvents(queryParams),
-    enabled: status !== 'loading' && canRequestAnalytics,
-  })
-
-  const usersQuery = useQuery({
-    queryKey: analyticsKeys.users(queryParams),
-    queryFn: () => fetchAnalyticsUsers(queryParams),
-    enabled: status !== 'loading' && canRequestAnalytics,
-  })
-
   const overview = overviewQuery.data ?? null
   const requestError =
     overviewQuery.error ??
     bookingsQuery.error ??
-    paymentsQuery.error ??
-    eventsQuery.error ??
-    usersQuery.error
+    paymentsQuery.error
   const errorMessage = requestError
     ? requestError instanceof Error
       ? requestError.message
@@ -160,12 +142,6 @@ export default function AnalyticsPage() {
         helper: `Published ${overview.eventSummary.publishedEvents.toLocaleString()}`,
         icon: <Activity className="h-5 w-5" />,
       },
-      {
-        label: 'Users',
-        value: overview.userSummary.totalScopedUsers.toLocaleString(),
-        helper: `Registrations ${overview.userSummary.registrationsInRange.toLocaleString()}`,
-        icon: <UsersRound className="h-5 w-5" />,
-      },
     ]
   }, [overview])
 
@@ -184,30 +160,15 @@ export default function AnalyticsPage() {
     () => mapTopEventsToActivity(overview?.topEvents ?? []),
     [overview?.topEvents],
   )
-  const eventsByOrganizerItems = useMemo(
-    () =>
-      mapOrganizerEventsToActivity(eventsQuery.data?.eventsByOrganizer ?? []),
-    [eventsQuery.data?.eventsByOrganizer],
-  )
-  const staffPerformanceItems = useMemo(
-    () =>
-      mapStaffPerformanceToActivity(
-        usersQuery.data?.staffPerformance.data ?? [],
-      ),
-    [usersQuery.data?.staffPerformance.data],
-  )
-
   const isLoadingOverview = canRequestAnalytics && overviewQuery.isLoading
   const isLoadingBookings = canRequestAnalytics && bookingsQuery.isLoading
   const isLoadingPayments = canRequestAnalytics && paymentsQuery.isLoading
-  const isLoadingEvents = canRequestAnalytics && eventsQuery.isLoading
-  const isLoadingUsers = canRequestAnalytics && usersQuery.isLoading
 
   return (
     <div className="space-y-8">
       <DashboardHeader
-        title="Analytics"
-        description="Deep-dive organizer trends and performance breakdowns from the Express API"
+        title="Dashboard"
+        description="A simple organizer snapshot and sales overview."
         actions={
           <Select
             value={rangePreset}
@@ -227,18 +188,18 @@ export default function AnalyticsPage() {
 
       {errorMessage ? (
         <Alert variant="destructive">
-          <AlertTitle>Unable to load analytics</AlertTitle>
+          <AlertTitle>Unable to load dashboard</AlertTitle>
           <AlertDescription>{errorMessage}</AlertDescription>
         </Alert>
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {!canRequestAnalytics
-          ? Array.from({ length: 4 }).map((_, index) => (
+          ? Array.from({ length: 3 }).map((_, index) => (
               <StatCardSkeleton key={index} />
             ))
           : isLoadingOverview && !stats.length
-            ? Array.from({ length: 4 }).map((_, index) => (
+            ? Array.from({ length: 3 }).map((_, index) => (
                 <StatCardSkeleton key={index} />
               ))
             : stats.map((stat) => <StatCard key={stat.label} {...stat} />)}
@@ -246,7 +207,7 @@ export default function AnalyticsPage() {
 
       <SectionCard
         title="Bookings vs. Revenue"
-        subtitle="Track booking volume and revenue over time."
+        subtitle="Daily booking count and confirmed revenue. Each measure has its own scale."
       >
         {bookingsChartData.length ? (
           <AreaChart data={bookingsChartData} />
@@ -258,7 +219,7 @@ export default function AnalyticsPage() {
       </SectionCard>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <SectionCard title="Recent Activity" className="lg:col-span-2">
+        <SectionCard title="Top Events" className="lg:col-span-2">
           {!canRequestAnalytics ? (
             <EmptyState message="Organizer analytics are unavailable until the account is scoped." />
           ) : isLoadingOverview ? (
@@ -273,11 +234,14 @@ export default function AnalyticsPage() {
           ) : recentActivityItems.length ? (
             <ActivityList items={recentActivityItems} />
           ) : (
-            <EmptyState message="No live activity was returned by the overview endpoint." />
+            <EmptyState message="No events had bookings during this date range." />
           )}
         </SectionCard>
 
-        <SectionCard title="Payments Breakdown">
+        <SectionCard
+          title="Payments Breakdown"
+          subtitle="Revenue by payment status; hover to see payment counts."
+        >
           {paymentsData.length ? (
             <BarChart data={paymentsData} />
           ) : isLoadingPayments ? (
@@ -288,41 +252,6 @@ export default function AnalyticsPage() {
         </SectionCard>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <SectionCard title="Events by Organizer">
-          {eventsByOrganizerItems.length ? (
-            <ActivityList items={eventsByOrganizerItems} />
-          ) : isLoadingEvents ? (
-            <div className="space-y-3">
-              {Array.from({ length: 3 }).map((_, index) => (
-                <div
-                  key={index}
-                  className="h-16 animate-pulse rounded-2xl border border-slate-200 bg-slate-50"
-                />
-              ))}
-            </div>
-          ) : (
-            <EmptyState message="No organizer event aggregates were returned." />
-          )}
-        </SectionCard>
-
-        <SectionCard title="Staff Performance">
-          {staffPerformanceItems.length ? (
-            <ActivityList items={staffPerformanceItems} />
-          ) : isLoadingUsers ? (
-            <div className="space-y-3">
-              {Array.from({ length: 3 }).map((_, index) => (
-                <div
-                  key={index}
-                  className="h-16 animate-pulse rounded-2xl border border-slate-200 bg-slate-50"
-                />
-              ))}
-            </div>
-          ) : (
-            <EmptyState message="No staff performance data was returned." />
-          )}
-        </SectionCard>
-      </div>
     </div>
   )
 }

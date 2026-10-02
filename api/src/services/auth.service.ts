@@ -24,6 +24,7 @@ const sanitizeUser = <T extends { passwordHash?: string; role: Role }>(user: T):
 };
 
 const USER_SELECT = {
+  status: true,
   id: true,
   email: true,
   name: true,
@@ -153,6 +154,10 @@ export const authService = {
       throw new HttpError(401, 'Invalid credentials');
     }
 
+    if (user.status === 'INACTIVE') {
+      throw new HttpError(401, 'Your account is suspended');
+    }
+
     const sanitized = await sanitizeAndCacheUser(user);
     const tokens = await issueTokensForUser(sanitized);
     return buildAuthResponse(sanitized, tokens);
@@ -173,6 +178,11 @@ export const authService = {
     if (!user) {
       await tokenService.revokeRefreshToken(tokens.refreshToken);
       throw new HttpError(401, 'User could not be found');
+    }
+
+    if (user.status === 'INACTIVE') {
+      await tokenService.revokeRefreshToken(tokens.refreshToken);
+      throw new HttpError(401, 'Your account is suspended');
     }
 
     const sanitized = await sanitizeAndCacheUser(user);

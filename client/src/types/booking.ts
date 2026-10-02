@@ -24,6 +24,7 @@ export type Booking = {
   eventDate?: string
   checkIn: string
   checkOut: string
+  bookingDate?: string
   totalPrice: string
   status: BookingStatus
   notes: string
@@ -78,12 +79,6 @@ export type ResourceFilters = {
   sortBy?: 'eventName' | 'status' | 'totalPrice' | 'createdAt' | 'updatedAt'
   sortDirection?: 'asc' | 'desc'
   eventName?: string
-  checkInDate?: string
-  checkOutDate?: string
-  checkInFrom?: string
-  checkInTo?: string
-  checkOutFrom?: string
-  checkOutTo?: string
 }
 
 export type PaginatedResult<T> = {

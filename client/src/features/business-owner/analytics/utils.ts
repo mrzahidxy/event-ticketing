@@ -1,22 +1,14 @@
-import { formatDate, formatCurrency } from '@/lib/format'
+import { formatCurrency } from '@/lib/format'
 
 import type { Activity as ActivityListItem } from '../dashboard/components/activity-list'
 import type {
-  AnalyticsEventByOrganizer,
   AnalyticsOverviewEvent,
   AnalyticsPaymentStatusMetric,
-  AnalyticsStaffPerformance,
   AnalyticsTrendPoint,
   DateRangeParams,
   RangePreset,
   TrendChartPoint,
 } from './types'
-
-export function resolveOrganizerScopeId(
-  user?: { organizerId?: string | null } | null,
-) {
-  return user?.organizerId ?? null
-}
 
 export function getDateRange(preset: RangePreset): DateRangeParams {
   const now = new Date()
@@ -80,11 +72,12 @@ export function mapPaymentStatusBreakdown(
   metrics: AnalyticsPaymentStatusMetric[],
 ) {
   return metrics.map((metric) => ({
-    label: metric.status
-      .replace(/_/g, ' ')
-      .toLowerCase()
-      .replace(/\b\w/g, (char) => char.toUpperCase()),
+    label:
+      metric.status === 'SUCCEEDED'
+        ? 'Successful'
+        : metric.status.charAt(0) + metric.status.slice(1).toLowerCase(),
     value: metric.revenue,
+    count: metric.count,
   }))
 }
 
@@ -94,29 +87,7 @@ export function mapTopEventsToActivity(
   return items.map((item) => ({
     id: item.eventId,
     title: item.eventName,
-    description: `${item.organizerName} · ${item.bookingCount.toLocaleString()} bookings`,
+    description: `${item.organizerName} | ${item.bookingCount.toLocaleString()} bookings`,
     meta: formatCurrency(item.revenue),
-  }))
-}
-
-export function mapOrganizerEventsToActivity(
-  items: AnalyticsEventByOrganizer[],
-): ActivityListItem[] {
-  return items.map((item) => ({
-    id: item.organizerId,
-    title: item.organizerName,
-    description: `${item.totalEvents.toLocaleString()} events · ${item.publishedEvents.toLocaleString()} published`,
-    meta: `Avg ${formatCurrency(item.averagePrice)}`,
-  }))
-}
-
-export function mapStaffPerformanceToActivity(
-  items: AnalyticsStaffPerformance[],
-): ActivityListItem[] {
-  return items.map((item) => ({
-    id: String(item.userId),
-    title: item.name?.trim() || item.email,
-    description: `${item.bookingCount.toLocaleString()} bookings · ${item.assignedOrganizerCount.toLocaleString()} organizer${item.assignedOrganizerCount === 1 ? '' : 's'}`,
-    meta: item.latestAssignmentAt ? formatDate(item.latestAssignmentAt) : formatCurrency(item.revenue),
   }))
 }

@@ -65,7 +65,16 @@ export function UsersTable({ table }: UsersTableProps) {
           ) : (
             <DataTable
               columns={columns}
+              enableRowSelection={false}
               data={table.rows}
+              manualPagination
+              pageCount={table.meta?.totalPages ?? 0}
+              pagination={{
+                pageIndex: table.pageIndex,
+                pageSize: table.pageSize,
+                onPageChange: table.setPageIndex,
+                onPageSizeChange: table.setPageSize,
+              }}
               toolbar={toolbar}
               isLoading={table.isFetching}
               emptyMessage="No users found. Adjust filters or create a new user."
@@ -78,6 +87,7 @@ export function UsersTable({ table }: UsersTableProps) {
         open={table.dialog.isOpen}
         onClose={table.resetDialog}
         onConfirm={table.handleConfirmAction}
+        isPending={table.isMutatingAction}
         title={
           table.dialog.action === 'delete'
             ? 'Delete user'

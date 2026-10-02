@@ -9,7 +9,7 @@ import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import type { z } from 'zod'
-import { ArrowRight, Mail, UserCircle2 } from 'lucide-react'
+import { ArrowRight, Mail, Phone, UserCircle2 } from 'lucide-react'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -167,9 +167,9 @@ export function UserOrganizerBookingForm({
   })
 
   return (
-    <Card id="booking-form" className={cn('border-slate-200 bg-white', className)}>
-      <CardHeader className="p-4 pb-3 sm:p-5 sm:pb-3">
-        <CardTitle className="text-xl">Reserve tickets</CardTitle>
+    <Card id="booking-form" className={cn('border-slate-200 bg-white/95', className)}>
+      <CardHeader>
+        <CardTitle className="text-2xl">Book an event</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3 p-4 pt-0 sm:p-5 sm:pt-0">
         {status === 'authenticated' ? (
@@ -205,7 +205,7 @@ export function UserOrganizerBookingForm({
           >
             <Select
               id="user-booking-event"
-              disabled={!events.length || mutation.isPending}
+              disabled={!isAuthenticated || !events.length || mutation.isPending}
               {...form.register('eventId')}
             >
               <option value="">{events.length ? 'Select an event' : 'No events available'}</option>
@@ -227,7 +227,7 @@ export function UserOrganizerBookingForm({
               <Input
                 id="user-booking-date"
                 type="date"
-                disabled={mutation.isPending}
+                disabled={!isAuthenticated || mutation.isPending}
                 {...form.register('bookingDate')}
               />
             </FormField>
@@ -241,7 +241,7 @@ export function UserOrganizerBookingForm({
               <Input
                 id="user-booking-time"
                 type="time"
-                disabled={mutation.isPending}
+                disabled={!isAuthenticated || mutation.isPending}
                 {...form.register('bookingTime')}
               />
             </FormField>
@@ -257,7 +257,7 @@ export function UserOrganizerBookingForm({
             >
               <Select
                 id="user-booking-ticket-tier"
-                disabled={!selectedEventTiers.length || mutation.isPending}
+                disabled={!isAuthenticated || !selectedEventTiers.length || mutation.isPending}
                 {...form.register('ticketTierId', { valueAsNumber: true })}
               >
                 <option value={0}>Select a ticket tier</option>
@@ -294,48 +294,92 @@ export function UserOrganizerBookingForm({
                 type="number"
                 min={1}
                 max={selectedTierAvailable ?? undefined}
-                disabled={mutation.isPending || !selectedTier}
+                disabled={!isAuthenticated || mutation.isPending || !selectedTier}
                 {...form.register('quantity', { valueAsNumber: true })}
               />
             </FormField>
           </div>
 
-          {isAuthenticated ? (
-            <details className="rounded-xl border border-slate-200 px-4 py-3">
-              <summary className="cursor-pointer text-sm font-medium text-slate-700">
-                Add contact number or note <span className="font-normal text-slate-400">(optional)</span>
-              </summary>
-              <div className="mt-4 space-y-4">
-                <FormField
-                  label="Phone"
-                  error={form.formState.errors.phone?.message}
-                  htmlFor="user-booking-phone"
-                  description="Recommended for confirmation updates"
-                >
-                  <Input
-                    id="user-booking-phone"
-                    autoComplete="tel"
-                    disabled={mutation.isPending}
-                    placeholder="+1 (555) 123-4567"
-                    type="tel"
-                    {...form.register('phone')}
-                  />
-                </FormField>
-                <FormField
-                  label="Notes"
-                  error={form.formState.errors.notes?.message}
-                  htmlFor="user-booking-notes"
-                  description="Add dietary needs, accessibility requests, or other details."
-                >
-                  <Textarea
-                    id="user-booking-notes"
-                    placeholder="Optional booking notes"
-                    disabled={mutation.isPending}
-                    {...form.register('notes')}
-                  />
-                </FormField>
-              </div>
-            </details>
+          <div className="grid gap-5 md:grid-cols-3">
+            <FormField
+              label="Full Name"
+              error={form.formState.errors.fullName?.message}
+              htmlFor="public-booking-name"
+              required={!isAuthenticated}
+              description={isAuthenticated ? 'Filled from your account' : undefined}
+            >
+              <Input
+                id="public-booking-name"
+                autoComplete="name"
+                disabled
+                placeholder="Your full name"
+                {...form.register('fullName')}
+              />
+            </FormField>
+
+            <FormField
+              label="Email"
+              error={form.formState.errors.email?.message}
+              htmlFor="public-booking-email"
+              required={!isAuthenticated}
+              description={isAuthenticated ? 'Filled from your account' : undefined}
+            >
+              <Input
+                id="public-booking-email"
+                autoComplete="email"
+                disabled
+                placeholder="you@example.com"
+                type="email"
+                {...form.register('email')}
+              />
+            </FormField>
+
+            <FormField
+              label="Phone"
+              error={form.formState.errors.phone?.message}
+              htmlFor="public-booking-phone"
+              required={!isAuthenticated}
+              description={isAuthenticated ? 'Recommended for confirmation updates' : undefined}
+            >
+              <Input
+                id="public-booking-phone"
+                autoComplete="tel"
+                disabled={!isAuthenticated || mutation.isPending}
+                placeholder="+1 (555) 123-4567"
+                type="tel"
+                {...form.register('phone')}
+              />
+            </FormField>
+          </div>
+
+          <FormField
+            label="Notes"
+            error={form.formState.errors.notes?.message}
+            htmlFor="public-booking-notes"
+            description="Add dietary needs, accessibility requests, or other details."
+          >
+            <Textarea
+              id="public-booking-notes"
+              placeholder="Optional booking notes"
+              disabled={!isAuthenticated || mutation.isPending}
+              {...form.register('notes')}
+            />
+          </FormField>
+
+          {selectedEvent ? (
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <p className="font-medium text-slate-900">{selectedEvent.name}</p>
+              {selectedTier ? (
+                <p className="mt-1 text-sm text-slate-600">
+                  {selectedTier.name}: {selectedTier.price.toLocaleString('en-US', {
+                    style: 'currency',
+                    currency: selectedTier.currency.toUpperCase(),
+                  })}
+                </p>
+              ) : (
+                <p className="mt-1 text-sm text-slate-500">No ticket tiers available</p>
+              )}
+            </div>
           ) : null}
 
           <footer className="border-t border-slate-100 pt-3">

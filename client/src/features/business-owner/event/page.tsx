@@ -7,6 +7,7 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
+import { LoaderCircle, Pencil, Ticket, Trash2 } from 'lucide-react'
 
 import { TicketTierManager } from './components/ticket-tier-manager'
 import { DashboardHeader } from '../dashboard/components/dashboard-header'
@@ -18,7 +19,7 @@ import {
   listOrganizerEvents,
   updateOrganizerEvent,
 } from '../team/api/organizer-client'
-import { resolveOrganizerScopeId } from '../analytics/utils'
+import { resolveOrganizerScopeId } from '../organizer-scope'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { FormField } from '@/components/ui/form-field'
@@ -35,13 +36,12 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
-import { formatCurrency } from '@/lib/format'
 
 const organizerEventFormSchema = z
   .object({
     name: z.string().trim().min(2, 'Name is required').max(120),
     description: z.string().trim().max(2000).optional(),
-    price: z.coerce.number().positive('Price must be greater than 0'),
+    price: z.coerce.number().positive('Price must be greater than 0').optional(),
     isPublished: z.enum(['true', 'false']).default('false'),
   })
 
@@ -89,7 +89,7 @@ export default function EventPage() {
         description: values.description?.trim() || undefined,
         isPublished: values.isPublished === 'true',
         name: values.name.trim(),
-        price: Number(values.price),
+        price: values.price ?? 1,
       }),
     onSuccess: () => {
       toast.success('Event created')
@@ -113,7 +113,6 @@ export default function EventPage() {
         description: payload.values.description?.trim() || null,
         isPublished: payload.values.isPublished === 'true',
         name: payload.values.name.trim(),
-        price: Number(payload.values.price),
       }),
     onSuccess: () => {
       toast.success('Event updated')
@@ -166,7 +165,6 @@ export default function EventPage() {
     eventForm.reset({
       name: event.name ?? '',
       description: event.description ?? '',
-      price: event.price ?? 1,
       isPublished: event.isPublished ? 'true' : 'false',
     })
     setEventModalOpen(true)
@@ -185,6 +183,14 @@ export default function EventPage() {
 
     if (editingEventId) {
       updateEventMutation.mutate({ eventId: editingEventId, values })
+      return
+    }
+
+    if (values.price === undefined) {
+      eventForm.setError('price', {
+        type: 'required',
+        message: 'Initial ticket price is required',
+      })
       return
     }
 
@@ -208,7 +214,7 @@ export default function EventPage() {
       ) : (
         <SectionCard
           title="Events"
-          subtitle="Manage name, description, price, and publish status"
+          subtitle="Manage event details and ticket tiers"
           actions={
             canManageOrganizer ? (
               <Button onClick={openCreateEventModal}>Create event</Button>
@@ -239,9 +245,6 @@ export default function EventPage() {
                         Published
                       </TableHead>
                       <TableHead className="px-4 py-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
-                        Price
-                      </TableHead>
-                      <TableHead className="px-4 py-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
                         Description
                       </TableHead>
                       <TableHead className="w-[180px] px-4 py-3 text-right text-sm font-semibold uppercase tracking-wide text-slate-500">
@@ -260,40 +263,49 @@ export default function EventPage() {
                             {event.isPublished ? 'Published' : 'Draft'}
                           </Badge>
                         </TableCell>
-                        <TableCell className="px-4 py-4 text-sm text-slate-600">
-                          {formatCurrency(event.price ?? 0)}
-                        </TableCell>
                         <TableCell className="max-w-[240px] px-4 py-4 text-sm text-slate-600">
                           <span className="block truncate">{event.description || '—'}</span>
                         </TableCell>
                         <TableCell className="px-4 py-4 text-sm text-slate-600">
                           <div className="flex items-center justify-end gap-2">
                             <Button
-                              size="sm"
+                              size="icon"
                               variant="outline"
+                              type="button"
+                              aria-label={`Manage tickets for ${event.name}`}
+                              title="Manage tickets"
+                              className="h-9 w-9"
                               onClick={() => setTierManagerEventId(event.id)}
                             >
-                              Manage tiers
+                              <Ticket className="h-4 w-4" aria-hidden="true" />
                             </Button>
                             {canManageOrganizer ? (
                               <>
                                 <Button
-                                  size="sm"
+                                  size="icon"
                                   variant="outline"
+                                  type="button"
+                                  aria-label={`Edit ${event.name}`}
+                                  title="Edit event"
+                                  className="h-9 w-9"
                                   onClick={() => openEditEventModal(event.id)}
                                   disabled={isSavingEvent || deleteEventMutation.isPending}
                                 >
-                                  Edit
+                                  <Pencil className="h-4 w-4" aria-hidden="true" />
                                 </Button>
                                 <Button
-                                  size="sm"
+                                  size="icon"
                                   variant="outline"
+                                  type="button"
+                                  aria-label={`Delete ${event.name}`}
+                                  title="Delete event"
+                                  className="h-9 w-9 text-rose-600 hover:border-rose-200 hover:text-rose-600"
                                   onClick={() => handleDeleteEvent(event.id)}
                                   disabled={deleteEventMutation.isPending}
                                 >
                                   {deleteEventMutation.isPending && pendingDeleteEventId === event.id
-                                    ? 'Deleting...'
-                                    : 'Delete'}
+                                    ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
+                                    : <Trash2 className="h-4 w-4" aria-hidden="true" />}
                                 </Button>
                               </>
                             ) : (
@@ -340,7 +352,11 @@ export default function EventPage() {
         open={isEventModalOpen}
         onOpenChange={setEventModalOpen}
         title={editingEventId ? 'Edit event' : 'Create event'}
-        description="Manage organizer event details."
+        description={
+          editingEventId
+            ? 'Update event details. Manage ticket prices in Manage Tickets.'
+            : 'Create an event and set the initial General ticket price.'
+        }
       >
         <form onSubmit={handleEventSubmit} className="space-y-5">
           <div className="grid gap-4 md:grid-cols-2">
@@ -355,20 +371,22 @@ export default function EventPage() {
                 disabled={isSavingEvent}
               />
             </FormField>
-            <FormField
-              label="Price"
-              htmlFor="organizer-event-price"
-              error={eventForm.formState.errors.price?.message}
-            >
-              <Input
-                id="organizer-event-price"
-                type="number"
-                min="0.01"
-                step="0.01"
-                {...eventForm.register('price')}
-                disabled={isSavingEvent}
-              />
-            </FormField>
+            {!editingEventId ? (
+              <FormField
+                label="Initial ticket price (General)"
+                htmlFor="organizer-event-price"
+                error={eventForm.formState.errors.price?.message}
+              >
+                <Input
+                  id="organizer-event-price"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  {...eventForm.register('price')}
+                  disabled={isSavingEvent}
+                />
+              </FormField>
+            ) : null}
             <FormField
               label="Publish status"
               htmlFor="organizer-event-published"

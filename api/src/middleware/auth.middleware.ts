@@ -19,6 +19,7 @@ type GuardOptions =
     };
 
 const USER_SELECT = {
+  status: true,
   id: true,
   email: true,
   name: true,
@@ -82,6 +83,14 @@ async function loadAuthenticatedContext(token: string): Promise<AuthContext> {
   }
 
   const payload = verifyAccessToken(token);
+  // Read account status from the database so an existing cached session cannot bypass suspension.
+  const account = await prisma.user.findUnique({
+    where: { id: payload.userId },
+    select: { status: true },
+  });
+  if (!account || account.status === 'INACTIVE') {
+    throw new HttpError(401, account ? 'Your account is suspended' : 'User could not be found');
+  }
   const cacheKey = `user:${payload.userId}`;
   let user: SanitizedUser | null = null;
 

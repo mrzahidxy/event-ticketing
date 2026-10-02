@@ -15,6 +15,7 @@ model User {
   name         String?
   passwordHash String
   role         Role     @default(USER)
+  status       String   @default("ACTIVE")
   permissions  String[] @default([])
 
   // Existing relations

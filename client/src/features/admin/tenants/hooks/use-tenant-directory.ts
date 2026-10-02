@@ -14,7 +14,7 @@ export type Tenant = {
 }
 
 export type TenantStatusFilter = 'all' | 'active' | 'suspended'
-export type TenantAction = 'suspend' | 'reactivate' | 'delete'
+type TenantAction = 'delete' | 'suspend' | 'reactivate'
 
 type ConfirmDialogState = {
   isOpen: boolean
@@ -25,7 +25,7 @@ type ConfirmDialogState = {
 const defaultConfirmState: ConfirmDialogState = {
   isOpen: false,
   tenant: null,
-  action: 'suspend',
+  action: 'delete',
 }
 
 export function useTenantDirectory(tenants: Tenant[]) {

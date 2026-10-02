@@ -193,8 +193,8 @@ export function UserBookingHistoryPage() {
                           {booking.eventName || 'Untitled event'}
                         </TableCell>
                         <TableCell>
-                          {booking.checkIn && booking.checkOut
-                            ? `${formatDate(booking.checkIn)} to ${formatDate(booking.checkOut)}`
+                          {booking.bookingDate
+                            ? formatDate(booking.bookingDate)
                             : formatDate(booking.createdAt)}
                         </TableCell>
                         <TableCell>{booking.bookingTime || '-'}</TableCell>
