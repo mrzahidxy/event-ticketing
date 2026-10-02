@@ -1,22 +1,27 @@
-import compression from 'compression';
-import cors, { CorsOptions } from 'cors';
-import express from 'express';
-import helmet from 'helmet';
-import rateLimit, { Options as RateLimitOptions } from 'express-rate-limit';
-import cookieParser from 'cookie-parser';
+import compression from "compression";
+import cors, { CorsOptions } from "cors";
+import express from "express";
+import helmet from "helmet";
+import rateLimit, { Options as RateLimitOptions } from "express-rate-limit";
+import cookieParser from "cookie-parser";
 
-import routes from './routes';
-import { paymentWebhookRouter } from './routes/payment.routes';
-import { errorHandler, notFoundHandler } from './middleware/error.middleware';
-import { env } from './utils/env';
-import { httpLogger, logger, loggerWithRequestContext } from './utils/logger';
-import { requestIdMiddleware } from './middleware/request-id.middleware';
-import { serve, setup, swaggerSpec, swaggerUiOptions } from './middleware/swagger.middleware';
+import routes from "./routes";
+import { paymentWebhookRouter } from "./routes/payment.routes";
+import { errorHandler, notFoundHandler } from "./middleware/error.middleware";
+import { env } from "./utils/env";
+import { httpLogger, logger, loggerWithRequestContext } from "./utils/logger";
+import { requestIdMiddleware } from "./middleware/request-id.middleware";
+import {
+  serve,
+  setup,
+  swaggerSpec,
+  swaggerUiOptions,
+} from "./middleware/swagger.middleware";
 
 const app = express();
 
 const trustProxySetting = env.TRUST_PROXY ? 1 : false;
-app.set('trust proxy', trustProxySetting);
+app.set("trust proxy", trustProxySetting);
 
 // Request/response tracing
 app.use(requestIdMiddleware);
@@ -29,49 +34,57 @@ const limiterOptions: Partial<RateLimitOptions> & { trustProxy?: boolean } = {
   windowMs: 15 * 60 * 1000,
   max: 100,
   message: {
-    message: 'Too many requests from this IP, please try again later.',
+    message: "Too many requests from this IP, please try again later.",
   },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => req.method === 'POST' && req.path === '/api/tickets/check-in',
   trustProxy: Boolean(trustProxySetting),
 };
 
 const limiter = rateLimit(limiterOptions);
-const corsOrigins = env.CORS_ORIGIN.split(',')
+const corsOrigins = env.CORS_ORIGIN.split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
 const corsOptions: CorsOptions = {
-  origin: corsOrigins.length === 0 || corsOrigins.includes('*') ? true : corsOrigins,
+  origin:
+    corsOrigins.length === 0 || corsOrigins.includes("*") ? true : corsOrigins,
   credentials: true,
 };
+
+app.post(
+  "/api/payments/stripe/webhook",
+  express.raw({ type: "application/json" }),
+  paymentWebhookRouter,
+);
 
 app.use(limiter);
 app.use(helmet());
 app.use(cors(corsOptions));
 app.use(compression());
-app.use('/api/payments', paymentWebhookRouter);
-app.use(express.json({ limit: '1mb' }));
+app.use("/api/payments", paymentWebhookRouter);
+app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true }));
-app.get('/health', (_req, res) => {
-  res.status(200).json({ status: 'ok' });
+app.get("/health", (_req, res) => {
+  res.status(200).json({ status: "ok" });
 });
 
 // Swagger documentation
-app.use('/api-docs', serve, setup(swaggerSpec, swaggerUiOptions));
+app.use("/api-docs", serve, setup(swaggerSpec, swaggerUiOptions));
 
 // API routes
-app.use('/api', routes);
+app.use("/api", routes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-process.on('uncaughtException', (error) => {
-  logger.fatal({ error }, 'Uncaught exception');
+process.on("uncaughtException", (error) => {
+  logger.fatal({ error }, "Uncaught exception");
   process.exit(1);
 });
 
-process.on('unhandledRejection', (reason) => {
-  logger.fatal({ reason }, 'Unhandled rejection');
+process.on("unhandledRejection", (reason) => {
+  logger.fatal({ reason }, "Unhandled rejection");
   process.exit(1);
 });
 

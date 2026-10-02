@@ -226,7 +226,7 @@ const buildSynthesizedAuditLogEntries = async (): Promise<AuditLogEntry[]> => {
         scope: booking.organizerId ? 'organizer' : 'system',
         organizerId: booking.organizerId,
         action: 'booking.created',
-        actorLabel: booking.email || booking.fullName || 'guest',
+        actorLabel: booking.email || booking.fullName || 'ticket buyer',
         actorType: 'user',
         occurredAt: booking.createdAt.toISOString(),
         metadata: {

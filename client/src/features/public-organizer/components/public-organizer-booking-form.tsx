@@ -139,7 +139,8 @@ export function UserOrganizerBookingForm({
     },
   })
 
-  const canSubmit = events.length > 0 && Boolean(selectedTier) && !mutation.isPending && status !== 'loading'
+  const canSubmit =
+    isAuthenticated && events.length > 0 && Boolean(selectedTier) && !mutation.isPending
 
   const handleSubmit = form.handleSubmit((values) => {
     form.clearErrors()

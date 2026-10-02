@@ -29,7 +29,7 @@ This service is the Express + Prisma API for the Multi-Tenant Event Intelligence
 
 - Protect organizer and staff routes.
 - Scope organizer-owned data by `organizerId`.
-- Public guest routes must expose only published events.
+- Public event routes must expose only published events; ticket checkout requires an authenticated `USER` account.
 - Validate ticket tier quantity before creating Stripe Checkout sessions.
 - Treat Stripe webhooks as the payment source of truth.
 - Generate tickets only after confirmed payment.

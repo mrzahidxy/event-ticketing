@@ -13,8 +13,6 @@ export const PERMISSION_KEYS = [
 ] as const;
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
-export type AppRole = Role | 'GUEST';
-export const GUEST_ROLE: AppRole = 'GUEST';
 
 export const PERMISSIONS: Record<
   PermissionKey,
@@ -68,12 +66,11 @@ export const ROLE_PRESETS: Record<Role, PermissionKey[]> = {
   [Role.USER]: ['EVENT_READ'],
 };
 
-export const ROLE_METADATA: Record<AppRole, { label: string; description: string }> = {
+export const ROLE_METADATA: Record<Role, { label: string; description: string }> = {
   [Role.ADMIN]: { label: 'Admin', description: 'Platform-wide control' },
   [Role.OWNER]: { label: 'Owner', description: 'Full control of an organizer' },
   [Role.STAFF]: { label: 'Staff', description: 'Limited operational access to assigned organizers' },
   [Role.USER]: { label: 'User', description: 'Standard authenticated user' },
-  [GUEST_ROLE]: { label: 'Guest', description: 'Unauthenticated public access' },
 };
 
 export const normalizePermissions = (input?: string[] | null): PermissionKey[] => {
@@ -106,18 +103,10 @@ export const rbacDefinitions = () => ({
     key,
     ...PERMISSIONS[key],
   })),
-  roles: [
-    ...Object.entries(ROLE_PRESETS).map(([role, permissions]) => ({
-      role: role as Role,
-      label: ROLE_METADATA[role as Role]?.label ?? role,
-      description: ROLE_METADATA[role as Role]?.description ?? '',
-      permissions,
-    })),
-    {
-      role: GUEST_ROLE,
-      label: ROLE_METADATA[GUEST_ROLE].label,
-      description: ROLE_METADATA[GUEST_ROLE].description,
-      permissions: ['EVENT_READ'],
-    },
-  ],
+  roles: Object.entries(ROLE_PRESETS).map(([role, permissions]) => ({
+    role: role as Role,
+    label: ROLE_METADATA[role as Role]?.label ?? role,
+    description: ROLE_METADATA[role as Role]?.description ?? '',
+    permissions,
+  })),
 });

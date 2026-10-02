@@ -12,7 +12,7 @@ Some target services may not exist yet. Only add missing services when the activ
 
 ## MVP Goal
 
-Build a multi-tenant **event intelligence MVP** where organizers manage events, guests buy tickets, staff check in tickets, and booking/check-in events feed analytics summaries and rule-based recommendations.
+Build a multi-tenant **event intelligence MVP** where organizers manage events, authenticated users buy tickets, staff check in tickets, and booking/check-in events feed analytics summaries and rule-based recommendations.
 
 The goal is a clean, demo-ready portfolio project, not a fully commercial ticketing product.
 
@@ -20,11 +20,11 @@ The goal is a clean, demo-ready portfolio project, not a fully commercial ticket
 
 * `OWNER`: manages organizer events, ticket tiers, publishing, bookings, analytics, and recommendations.
 * `STAFF`: validates and checks in tickets for assigned organizer scope.
-* `GUEST`: views published events and buys tickets without an account.
+* `USER`: browses published events and buys tickets after signing in.
 
-Guests are public users by default and do not need accounts unless a task explicitly introduces guest authentication.
+Public event browsing does not require sign-in. Ticket checkout and booking history require an authenticated `USER` account.
 
-Protect organizer and staff routes. Scope organizer-owned data by `organizerId`. Public guest routes must show only published events.
+Protect organizer and staff routes. Scope organizer-owned data by `organizerId`. Public event routes must show only published events.
 
 ## Tenant Isolation Rules
 
@@ -33,7 +33,7 @@ Authentication is not tenant isolation. `req.auth.organizerId` is request contex
 * Organizer-owned reads must verify platform admin, organizer owner, or explicit organizer staff membership scope before returning data.
 * Organizer writes are owner/admin only, including organizer profile updates, event create/update/delete, ticket tier management, and staff assignment changes.
 * Staff access is limited to allowed operational actions for assigned organizers. Staff must not create, update, or delete events, ticket tiers, organizer profiles, or staff assignments.
-* Protected organizer, analytics, booking, ticket, check-in, and payment routes must reject guests/public users.
+* Protected organizer, analytics, booking, ticket, check-in, and payment routes must reject unauthenticated requests.
 * Public routes may expose only published public data and must hide suspended organizers and unpublished events.
 * Cross-organizer access attempts must return clear `403 Forbidden` or `404 Not Found` errors.
 * Event and ticket-tier lookups must be scoped through the parent organizer, for example by querying with both `eventId` and `organizerId`.
@@ -45,7 +45,7 @@ Authentication is not tenant isolation. `req.auth.organizerId` is request contex
 * Organizer login with `OWNER` and `STAFF` roles.
 * Event and ticket-tier management.
 * Public event listing.
-* Guest booking and Stripe Checkout.
+* Authenticated user booking and Stripe Checkout.
 * Stripe webhook payment confirmation.
 * Ticket QR/token generation after confirmed payment.
 * Staff ticket check-in.
@@ -143,7 +143,7 @@ Do not rename models casually just to match this document.
 * Prisma handles database access.
 * External services stay inside integration modules.
 * All organizer-owned queries must include `organizerId` and verify owner/member/admin scope in service logic.
-* Public guest queries must only return published events.
+* Public event queries must only return published events.
 * Payment webhook processing must be retry-safe.
 * Booking finalization must use a database transaction.
 * Tickets must be generated only after confirmed payment.
@@ -192,13 +192,13 @@ When changing frontend behavior:
 * Keep page files thin.
 * Put business behavior in existing feature folders where possible.
 * Do not expose cross-organizer data in owner/staff UI.
-* Keep guest-facing pages limited to published public events.
+* Keep public event pages limited to published events.
 
 ## Main Flows
 
 ## Booking Flow
 
-1. Guest submits booking request.
+1. Authenticated user submits booking request.
 2. API validates event, ticket tier, and quantity.
 3. API creates a pending booking.
 4. API creates a Stripe Checkout session.
@@ -359,7 +359,7 @@ Example:
 ```txt
 owner creates event
 -> owner publishes event
--> guest books ticket
+-> authenticated user books ticket
 -> Stripe webhook confirms payment
 -> ticket is generated
 -> staff checks in ticket
@@ -419,7 +419,7 @@ For UI changes:
 * Update API clients/types.
 * Handle loading and error states clearly.
 * Keep owner/staff screens tenant-safe.
-* Keep public guest screens limited to published events.
+* Keep public event screens limited to published events.
 
 ## 7. Update Analytics or Recommendations
 
@@ -456,7 +456,7 @@ Before marking a feature done, check:
 
 * Auth: Are protected routes limited to the correct roles?
 * Tenant scope: Are organizer queries constrained by `organizerId`?
-* Guest visibility: Are only published events visible publicly?
+* Public event visibility: Are only published events visible publicly?
 * Booking: Is requested quantity validated before checkout?
 * Payment: Is Stripe webhook treated as the source of truth?
 * Tickets: Are tickets generated only after confirmed payment?
@@ -572,7 +572,7 @@ Use this order unless the active task says otherwise:
 A feature is done when the relevant parts of this demo path work:
 
 * Owner can create and publish an event.
-* Guest can buy a ticket through Stripe Checkout.
+* An authenticated user can buy a ticket through Stripe Checkout.
 * Ticket is generated after webhook confirmation.
 * Staff can check in the ticket.
 * Duplicate scan is blocked.

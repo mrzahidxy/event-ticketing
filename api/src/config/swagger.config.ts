@@ -232,7 +232,7 @@ const bookingPaths: OAS3Definition['paths'] = {
           schema: {
             type: 'string',
           },
-          description: 'Search by booking guest, contact, or event name (case-insensitive)',
+          description: 'Search by ticket buyer, contact, or event name (case-insensitive)',
           example: 'john',
         },
         {
@@ -1371,6 +1371,43 @@ const paymentPaths: OAS3Definition['paths'] = {
   },
 };
 
+const ticketPaths: OAS3Definition['paths'] = {
+  '/tickets/check-in': {
+    post: {
+      operationId: 'checkInTicket',
+      summary: 'Validate and check in a ticket',
+      description:
+        "Requires an authenticated STAFF or OWNER account. The scanned QR token is resolved within the user's organizer scope.",
+      tags: ['Tickets'],
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: ['qrPayload'],
+              additionalProperties: false,
+              properties: {
+                qrPayload: { type: 'string', minLength: 1, maxLength: 512 },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        200: { description: 'Ticket and check-in record were updated successfully' },
+        401: { description: 'Authentication is required' },
+        403: { description: 'Role or organizer scope is not authorized' },
+        404: { description: 'Ticket was not found in the organizer scope' },
+        409: { description: 'Ticket was already scanned or checked in' },
+        422: { description: 'Ticket is not valid for check-in' },
+        503: { description: 'Redis duplicate-scan guard is unavailable' },
+      },
+    },
+  },
+};
+
 type SwaggerParameters = NonNullable<
   NonNullable<NonNullable<OAS3Definition['paths']>['/health']>['get']
 >['parameters'];
@@ -1657,6 +1694,10 @@ const swaggerDefinition: OAS3Definition = {
       description: 'Payment processing endpoints',
     },
     {
+      name: 'Tickets',
+      description: 'Ticket validation and check-in endpoints',
+    },
+    {
       name: 'Analytics',
       description: 'Aggregated booking, payment, event, and user reporting endpoints',
     },
@@ -1668,6 +1709,7 @@ const swaggerDefinition: OAS3Definition = {
     ...organizerPaths,
     ...userPaths,
     ...paymentPaths,
+    ...ticketPaths,
     ...analyticsPaths,
   },
 };

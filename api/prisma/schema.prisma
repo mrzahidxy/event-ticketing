@@ -228,7 +228,7 @@ model Ticket {
 
 model TicketCheckin {
   id                Int           @id @default(autoincrement())
-  ticketId          String        @db.Uuid
+  ticketId          String        @unique @db.Uuid
   checkedInByUserId Int?
   checkedInAt       DateTime      @default(now())
   scanSource        CheckinSource @default(QR)
@@ -237,7 +237,6 @@ model TicketCheckin {
   ticket          Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   checkedInByUser User?  @relation(fields: [checkedInByUserId], references: [id], onDelete: SetNull)
 
-  @@index([ticketId])
   @@index([checkedInByUserId])
 }
 

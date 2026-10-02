@@ -1,7 +1,7 @@
 'use client'
 
 import { apiClient } from '@/lib/api'
-import { normalizePaginatedBookings } from '@/lib/api/normalizers'
+import { extractEntity, normalizeBooking, normalizePaginatedBookings } from '@/lib/api/normalizers'
 import type { Booking, PaginatedResult } from '@/types/booking'
 
 export type UserBookingHistoryParams = {
@@ -22,4 +22,13 @@ export async function listUserBookingHistory(
   })
 
   return normalizePaginatedBookings(response)
+}
+
+export async function getUserBookingDetails(id: number): Promise<Booking> {
+  const response = await apiClient.get<unknown>(`/api/bookings/${id}`, {
+    auth: true,
+    cache: 'no-store',
+  })
+
+  return extractEntity(response, ['booking'], normalizeBooking)
 }
