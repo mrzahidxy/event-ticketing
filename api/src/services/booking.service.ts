@@ -10,6 +10,7 @@ import { prisma } from '../utils/prisma';
 import { AuthenticatedUser } from '../types/user';
 import { cache } from '../utils/cache';
 import { logger } from '../utils/logger';
+import { env } from '../utils/env';
 import { resolveOrganizerTenantScope } from './tenant-scope.service';
 
 const DEFAULT_PAGE = 1;
@@ -101,29 +102,6 @@ const bookingDetailInclude = {
 
 type BookingListItem = Prisma.BookingGetPayload<{ include: typeof bookingListInclude }>;
 type BookingDetail = Prisma.BookingGetPayload<{ include: typeof bookingDetailInclude }>;
-type PublicBookingSubmission = {
-  id: number;
-  fullName: string | null;
-  email: string | null;
-  phone: string | null;
-  eventId: string | null;
-  eventName: string | null;
-  ticketTierId: number;
-  tierName: string;
-  userId: number | null;
-  bookingDate: Date | null;
-  bookingTime: string | null;
-  quantity: number;
-  guestCount: number | null;
-  notes: string | null;
-  totalAmount: Prisma.Decimal;
-  totalPrice: Prisma.Decimal;
-  currency: string;
-  status: BookingStatus;
-  createdAt: Date;
-  updatedAt: Date;
-};
-
 type ListBookingsFilters = Partial<ListBookingsQuery> & {
   search?: string;
 };
@@ -302,7 +280,6 @@ const createBookingWithTier = async (input: {
     where: { id: input.eventId },
     select: {
       id: true,
-      name: true,
       organizerId: true,
       isPublished: true,
       organizer: {
@@ -352,6 +329,7 @@ const createBookingWithTier = async (input: {
   assertTierBookable(tier, input.quantity);
 
   const lineTotal = tier.price.mul(input.quantity);
+  const totalAmount = lineTotal.add(new Prisma.Decimal(env.DEMO_BOOKING_CHARGE));
 
   const booking = await prisma.$transaction(async (tx) => {
     const updated = await tx.$executeRaw`
@@ -383,6 +361,7 @@ const createBookingWithTier = async (input: {
         currency: tier.currency,
         status: BookingStatus.PENDING,
       },
+      select: { id: true },
     });
 
     await tx.bookingItem.create({
@@ -399,7 +378,7 @@ const createBookingWithTier = async (input: {
     return created;
   });
 
-  return { booking, event, tier, quantity: input.quantity, lineTotal };
+  return booking;
 };
 
 export const releaseBookingInventoryReservation = async (
@@ -548,15 +527,9 @@ export const bookingService = {
     input: CreatePublicBookingInput,
     actor: AuthenticatedUser,
     organizerId: string
-  ): Promise<PublicBookingSubmission> => {
+  ): Promise<{ id: number }> => {
     if (actor.role !== Role.USER) {
       throw new HttpError(401, 'Sign in with a user account to continue to ticket checkout');
-    }
-
-    const bookingDate = new Date(`${input.bookingDate}T00:00:00.000Z`);
-
-    if (Number.isNaN(bookingDate.getTime())) {
-      throw new HttpError(400, 'Booking date must be a valid date');
     }
 
     const eventScope = await prisma.event.findUnique({
@@ -580,7 +553,7 @@ export const bookingService = {
       throw new HttpError(400, 'A full name and email address are required');
     }
 
-    const { booking, event, tier, quantity, lineTotal } = await createBookingWithTier({
+    const booking = await createBookingWithTier({
       eventId: input.eventId,
       ticketTierId: input.ticketTierId,
       quantity: input.quantity,
@@ -592,28 +565,7 @@ export const bookingService = {
       requirePublished: true,
     });
 
-    return {
-      id: booking.id,
-      fullName: booking.fullName ?? fullName,
-      email: booking.email ?? email,
-      phone: booking.phone ?? phone ?? '',
-      eventId: booking.eventId,
-      eventName: event.name,
-      ticketTierId: tier.id,
-      tierName: tier.name,
-      userId: booking.userId,
-      bookingDate,
-      bookingTime: input.bookingTime,
-      quantity,
-      guestCount: input.guestCount ?? quantity,
-      notes: booking.notes ?? null,
-      totalAmount: lineTotal,
-      totalPrice: lineTotal,
-      currency: tier.currency,
-      status: booking.status,
-      createdAt: booking.createdAt,
-      updatedAt: booking.updatedAt,
-    };
+    return { id: booking.id };
   },
 
   list: async (
