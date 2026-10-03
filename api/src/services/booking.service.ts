@@ -357,7 +357,7 @@ const createBookingWithTier = async (input: {
         phone: input.phone ?? null,
         notes: input.notes ?? null,
         subtotalAmount: lineTotal,
-        totalAmount: lineTotal,
+        totalAmount,
         currency: tier.currency,
         status: BookingStatus.PENDING,
       },
