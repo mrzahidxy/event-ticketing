@@ -53,6 +53,7 @@ const baseEnvSchema = z.object({
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
   STRIPE_CURRENCY: z.string().default('usd'),
+  DEMO_BOOKING_CHARGE: z.string().regex(/^\d{1,8}(?:\.\d{1,2})?$/, 'DEMO_BOOKING_CHARGE must be a non-negative amount with up to two decimal places').default('0.00'),
   TRUST_PROXY: envBoolean(false),
   REDIS_URL: z.string().optional(),
 });

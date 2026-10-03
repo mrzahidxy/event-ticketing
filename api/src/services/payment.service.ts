@@ -126,6 +126,16 @@ const buildTicketCheckoutSessionParams = (
           unit_amount: Math.round(Number(primaryItem.unitPriceSnapshot) * 100),
         },
       },
+      ...(new Prisma.Decimal(env.DEMO_BOOKING_CHARGE).gt(0)
+        ? [{
+            quantity: 1,
+            price_data: {
+              currency: booking.currency,
+              product_data: { name: 'Demo booking fee' },
+              unit_amount: Math.round(Number(env.DEMO_BOOKING_CHARGE) * 100),
+            },
+          }]
+        : []),
     ],
     metadata,
     payment_intent_data: {

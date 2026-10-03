@@ -54,6 +54,7 @@ services:
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
       STRIPE_CURRENCY: ${STRIPE_CURRENCY:-usd}
+      DEMO_BOOKING_CHARGE: ${DEMO_BOOKING_CHARGE:-0.00}
     depends_on:
       postgres:
         condition: service_healthy
