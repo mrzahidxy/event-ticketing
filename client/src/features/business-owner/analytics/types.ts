@@ -5,6 +5,20 @@
 
 export type RangePreset = (typeof RANGE_OPTIONS)[number]['value']
 
+export type AnalyticsEventsResponse = {
+  scope: AnalyticsScope
+  rows: {
+    organizerId: string
+    eventId: string
+    totalBookings: number
+    ticketsSold: number
+    estimatedRevenue: string
+    currency: string | null
+    checkIns: number
+    updatedAt: string
+  }[]
+}
+
 export type DateRangeParams = {
   from?: string
   to?: string

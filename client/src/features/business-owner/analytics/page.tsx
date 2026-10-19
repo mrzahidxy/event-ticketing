@@ -21,6 +21,7 @@ import {
   fetchAnalyticsBookings,
   fetchAnalyticsOverview,
   fetchAnalyticsPayments,
+  fetchAnalyticsEvents,
 } from './api/analytics-client'
 import {
   getDateRange,
@@ -108,6 +109,12 @@ export default function AnalyticsPage() {
   })
 
   const overview = overviewQuery.data ?? null
+  const eventAnalyticsQuery = useQuery({
+    queryKey: analyticsKeys.events(session?.user?.id, organizerId ?? undefined),
+    queryFn: () => fetchAnalyticsEvents(organizerId ?? undefined),
+    enabled: status === 'authenticated' && canRequestAnalytics,
+    refetchInterval: 30_000,
+  })
   const requestError =
     overviewQuery.error ??
     bookingsQuery.error ??
@@ -204,6 +211,54 @@ export default function AnalyticsPage() {
               ))
             : stats.map((stat) => <StatCard key={stat.label} {...stat} />)}
       </div>
+
+      <SectionCard
+        title="Event analytics"
+        subtitle="All-time activity processed so far. Updates every 30 seconds; the date filter does not apply. Estimated revenue comes from bookings, not settled payments."
+      >
+        {status === 'loading' || eventAnalyticsQuery.isLoading ? (
+          <ChartSkeleton />
+        ) : !canRequestAnalytics ? (
+          <EmptyState message="Organizer analytics are unavailable until the account is scoped." />
+        ) : eventAnalyticsQuery.isError ? (
+          <Alert variant="destructive">
+            <AlertTitle>Unable to load event activity totals</AlertTitle>
+            <AlertDescription>
+              {eventAnalyticsQuery.error instanceof Error ? eventAnalyticsQuery.error.message : 'The request failed.'}
+            </AlertDescription>
+          </Alert>
+        ) : eventAnalyticsQuery.data?.rows.length ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <caption className="sr-only">Event analytics by organizer and event</caption>
+              <thead>
+                <tr className="border-b text-slate-500">
+                  {['Event ID', 'Bookings', 'Tickets sold', 'Estimated revenue', 'Check-ins', 'Last updated'].map((label) => (
+                    <th key={label} scope="col" className="whitespace-nowrap px-3 py-3 font-medium">{label}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {eventAnalyticsQuery.data.rows.map((row) => (
+                  <tr key={`${row.organizerId}:${row.eventId}`} className="border-b text-slate-700">
+                    <th scope="row" className="px-3 py-3 font-medium">
+                      {row.eventId}
+                      <span className="block text-xs font-normal text-slate-500">Organizer: {row.organizerId}</span>
+                    </th>
+                    <td className="px-3 py-3">{row.totalBookings.toLocaleString()}</td>
+                    <td className="px-3 py-3">{row.ticketsSold.toLocaleString()}</td>
+                    <td className="whitespace-nowrap px-3 py-3">{row.estimatedRevenue} {row.currency ?? '(currency not yet recorded)'}</td>
+                    <td className="px-3 py-3">{row.checkIns.toLocaleString()}</td>
+                    <td className="whitespace-nowrap px-3 py-3">{new Date(row.updatedAt).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <EmptyState message="No event activity totals have been processed for this organizer scope yet." />
+        )}
+      </SectionCard>
 
       <SectionCard
         title="Bookings vs. Revenue"
