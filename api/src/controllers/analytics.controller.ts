@@ -16,6 +16,13 @@ const applyAnalyticsCachingHeaders = (res: Response) => {
 };
 
 export const analyticsController = {
+  eventAnalytics: async (req: AuthenticatedRequest, res: Response) => {
+    const analytics = await analyticsService.getEventReadModelAnalytics(req.user!, req.query.organizerId as string | undefined);
+    res.set('Cache-Control', 'private, no-store');
+    res.set('Vary', 'Authorization');
+    res.status(200).json(successResponse(analytics));
+  },
+
   overview: async (req: AuthenticatedRequest, res: Response) => {
     const analytics = await analyticsService.getOverview(req.user!, getAnalyticsQuery(req));
     applyAnalyticsCachingHeaders(res);

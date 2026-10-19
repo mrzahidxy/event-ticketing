@@ -1,3 +1,5 @@
+import { randomUUID } from 'crypto';
+
 import {
   BookingStatus,
   CheckinSource,
@@ -164,6 +166,7 @@ export const createTicketCheckInService = (deps: CheckInDependencies) => ({
       });
 
       await publishDomainEvent({
+        domainEventId: randomUUID(),
         eventType: 'checkin.created',
         occurredAt: result.checkIn.checkedInAt.toISOString(),
         tenantId: ticket.event.organizerId,

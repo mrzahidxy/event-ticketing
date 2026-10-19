@@ -9,6 +9,27 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+model EventAnalytics {
+  id               Int      @id @default(autoincrement())
+  organizerId      String   @db.Uuid
+  eventId          String   @db.Uuid
+  totalBookings    Int      @default(0)
+  ticketsSold      Int      @default(0)
+  estimatedRevenue Decimal  @default(0) @db.Decimal(18, 2)
+  currency         String?
+  checkIns         Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([organizerId, eventId])
+}
+
+model ProcessedDomainEvent {
+  domainEventId String   @id
+  eventType     String
+  processedAt   DateTime @default(now())
+}
+
 model User {
   id           Int      @id @default(autoincrement())
   email        String   @unique

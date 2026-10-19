@@ -1014,6 +1014,32 @@ export const createAnalyticsService = (deps: AnalyticsServiceDependencies) => {
   const helpers = createAnalyticsServiceHelpers(deps);
 
   return {
+    getEventReadModelAnalytics: async (actor: AuthenticatedUser, organizerId?: string) => {
+      const scope = await resolveAnalyticsScope(deps, actor, organizerId);
+      const rows = await deps.prisma.eventAnalytics.findMany({
+        where: scope.visibility === 'platform' ? {} : { organizerId: { in: scope.organizerIds } },
+        select: {
+          organizerId: true,
+          eventId: true,
+          totalBookings: true,
+          ticketsSold: true,
+          estimatedRevenue: true,
+          currency: true,
+          checkIns: true,
+          updatedAt: true,
+        },
+        orderBy: [{ updatedAt: 'desc' }, { organizerId: 'asc' }, { eventId: 'asc' }],
+      });
+      return {
+        scope: formatScopePayload(scope),
+        rows: rows.map((row) => ({
+          ...row,
+          estimatedRevenue: row.estimatedRevenue.toFixed(2),
+          updatedAt: row.updatedAt.toISOString(),
+        })),
+      };
+    },
+
     getOverview: async (
       actor: AuthenticatedUser,
       input: AnalyticsQueryInput

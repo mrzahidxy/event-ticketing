@@ -297,6 +297,7 @@ const finalizeTicketBookingPayment = async (event: Stripe.Event, session: Stripe
       bookingId: booking.id,
       userId: booking.userId,
       domainEvent: booking.status !== BookingStatus.CONFIRMED ? {
+        domainEventId: randomUUID(),
         eventType: 'booking.created',
         occurredAt: (booking.confirmedAt ?? confirmedAt).toISOString(),
         tenantId: booking.organizerId,

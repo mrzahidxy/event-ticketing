@@ -11,6 +11,8 @@
     "test": "node --test -r ts-node/register tests/*.test.js",
     "start": "node dist/server.js",
     "start:prod": "node dist/server.js",
+    "worker:analytics": "ts-node --project tsconfig.json src/workers/analytics.worker.ts",
+    "worker:analytics:prod": "node dist/workers/analytics.worker.js",
     "seed": "ts-node --project tsconfig.json prisma/seed.ts",
     "db:setup": "npm run prisma:migrate && npm run seed",
     "prisma:generate": "prisma generate",

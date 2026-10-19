@@ -38,3 +38,7 @@ export const analyticsQuerySchema = z
   });
 
 export type AnalyticsQueryInput = z.infer<typeof analyticsQuerySchema>;
+
+export const eventAnalyticsQuerySchema = z.object({
+  organizerId: z.string().uuid().optional(),
+}).strict();

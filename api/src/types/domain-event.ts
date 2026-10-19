@@ -1,4 +1,5 @@
 type DomainEventEnvelope<TType extends string, TData> = {
+  domainEventId: string;
   eventType: TType;
   occurredAt: string;
   tenantId: string;
