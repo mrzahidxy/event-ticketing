@@ -55,6 +55,13 @@ const baseEnvSchema = z.object({
   STRIPE_CURRENCY: z.string().default('usd'),
   TRUST_PROXY: envBoolean(false),
   REDIS_URL: z.string().optional(),
+  KAFKA_BROKERS: z.string().default('localhost:9092').refine(
+    (value) => value.split(',').every((broker) => broker.trim().length > 0),
+    'KAFKA_BROKERS must contain comma-separated broker addresses'
+  ),
+  KAFKA_CLIENT_ID: z.string().min(1).default('event-intelligence-backend'),
+  KAFKA_TOPIC_DOMAIN_EVENTS: z.string().min(1).default('domain-events'),
+  KAFKA_ANALYTICS_GROUP_ID: z.string().min(1).default('analytics-worker'),
 });
 
 const envSchema = baseEnvSchema.superRefine((data, ctx) => {

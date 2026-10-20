@@ -1,3 +1,5 @@
+import { randomUUID } from 'crypto';
+
 import {
   BookingStatus,
   CheckinSource,
@@ -11,6 +13,7 @@ import {
 import type { AuthenticatedUser } from '../types/user';
 import { resolveOrganizerTenantScope } from './tenant-scope.service';
 import { HttpError } from '../utils/http-error';
+import { publishDomainEvent } from '../utils/kafka';
 
 export const CHECKIN_GUARD_TTL_SECONDS = 10;
 
@@ -63,6 +66,7 @@ export const createTicketCheckInService = (deps: CheckInDependencies) => ({
         event: { organizerId: { in: organizerScope.organizerIds } },
       },
       include: {
+        event: { select: { organizerId: true } },
         booking: {
           select: {
             status: true,
@@ -111,7 +115,7 @@ export const createTicketCheckInService = (deps: CheckInDependencies) => ({
     const checkedInAt = new Date();
 
     try {
-      return await deps.prisma.$transaction(async (tx) => {
+      const result = await deps.prisma.$transaction(async (tx) => {
         const updated = await tx.ticket.updateMany({
           where: {
             id: ticket.id,
@@ -160,6 +164,19 @@ export const createTicketCheckInService = (deps: CheckInDependencies) => ({
           checkIn,
         };
       });
+
+      await publishDomainEvent({
+        domainEventId: randomUUID(),
+        eventType: 'checkin.created',
+        occurredAt: result.checkIn.checkedInAt.toISOString(),
+        tenantId: ticket.event.organizerId,
+        data: {
+          checkInId: result.checkIn.id,
+          ticketId: result.checkIn.ticketId,
+          eventId: ticket.eventId,
+        },
+      });
+      return result;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         throw new HttpError(409, 'Ticket has already been checked in');

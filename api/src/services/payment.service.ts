@@ -13,6 +13,8 @@ import { env } from '../utils/env';
 import { HttpError } from '../utils/http-error';
 import { prisma } from '../utils/prisma';
 import { getStripeClient } from '../utils/stripe';
+import { publishDomainEvent } from '../utils/kafka';
+import type { DomainEvent } from '../types/domain-event';
 
 type PaymentList = Awaited<ReturnType<typeof prisma.payment.findMany>>;
 
@@ -244,6 +246,7 @@ const finalizeTicketBookingPayment = async (event: Stripe.Event, session: Stripe
       return {
         bookingId: booking.id,
         userId: booking.userId,
+        domainEvent: null,
       };
     }
 
@@ -293,10 +296,26 @@ const finalizeTicketBookingPayment = async (event: Stripe.Event, session: Stripe
     return {
       bookingId: booking.id,
       userId: booking.userId,
+      domainEvent: booking.status !== BookingStatus.CONFIRMED ? {
+        domainEventId: randomUUID(),
+        eventType: 'booking.created',
+        occurredAt: (booking.confirmedAt ?? confirmedAt).toISOString(),
+        tenantId: booking.organizerId,
+        data: {
+          bookingId: booking.id,
+          eventId: booking.eventId,
+          quantity: expectedTicketCount,
+          totalAmount: booking.totalAmount.toFixed(2),
+          currency: booking.currency,
+        },
+      } satisfies DomainEvent : null,
     };
   });
 
   if (result) {
+    if (result.domainEvent) {
+      await publishDomainEvent(result.domainEvent);
+    }
     await invalidateBookingPaymentCache(result.bookingId, result.userId);
   }
 };

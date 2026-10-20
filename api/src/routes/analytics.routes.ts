@@ -5,7 +5,7 @@ import { Router } from 'express';
 import { analyticsController } from '../controllers/analytics.controller';
 import { requireAuth } from '../middleware/auth.middleware';
 import { validateRequest } from '../middleware/validation.middleware';
-import { analyticsQuerySchema } from '../schemas/analytics.schema';
+import { analyticsQuerySchema, eventAnalyticsQuerySchema } from '../schemas/analytics.schema';
 
 const analyticsLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -27,5 +27,6 @@ router.use(
 router.get('/overview', validateRequest(analyticsQuerySchema, 'query'), analyticsController.overview);
 router.get('/bookings', validateRequest(analyticsQuerySchema, 'query'), analyticsController.bookings);
 router.get('/payments', validateRequest(analyticsQuerySchema, 'query'), analyticsController.payments);
+router.get('/events', validateRequest(eventAnalyticsQuerySchema, 'query'), analyticsController.eventAnalytics);
 
 export default router;

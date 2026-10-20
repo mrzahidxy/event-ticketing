@@ -101,29 +101,6 @@ const bookingDetailInclude = {
 
 type BookingListItem = Prisma.BookingGetPayload<{ include: typeof bookingListInclude }>;
 type BookingDetail = Prisma.BookingGetPayload<{ include: typeof bookingDetailInclude }>;
-type PublicBookingSubmission = {
-  id: number;
-  fullName: string | null;
-  email: string | null;
-  phone: string | null;
-  eventId: string | null;
-  eventName: string | null;
-  ticketTierId: number;
-  tierName: string;
-  userId: number | null;
-  bookingDate: Date | null;
-  bookingTime: string | null;
-  quantity: number;
-  guestCount: number | null;
-  notes: string | null;
-  totalAmount: Prisma.Decimal;
-  totalPrice: Prisma.Decimal;
-  currency: string;
-  status: BookingStatus;
-  createdAt: Date;
-  updatedAt: Date;
-};
-
 type ListBookingsFilters = Partial<ListBookingsQuery> & {
   search?: string;
 };
@@ -548,15 +525,9 @@ export const bookingService = {
     input: CreatePublicBookingInput,
     actor: AuthenticatedUser,
     organizerId: string
-  ): Promise<PublicBookingSubmission> => {
+  ): Promise<{ id: number }> => {
     if (actor.role !== Role.USER) {
       throw new HttpError(401, 'Sign in with a user account to continue to ticket checkout');
-    }
-
-    const bookingDate = new Date(`${input.bookingDate}T00:00:00.000Z`);
-
-    if (Number.isNaN(bookingDate.getTime())) {
-      throw new HttpError(400, 'Booking date must be a valid date');
     }
 
     const eventScope = await prisma.event.findUnique({
@@ -592,28 +563,7 @@ export const bookingService = {
       requirePublished: true,
     });
 
-    return {
-      id: booking.id,
-      fullName: booking.fullName ?? fullName,
-      email: booking.email ?? email,
-      phone: booking.phone ?? phone ?? '',
-      eventId: booking.eventId,
-      eventName: event.name,
-      ticketTierId: tier.id,
-      tierName: tier.name,
-      userId: booking.userId,
-      bookingDate,
-      bookingTime: input.bookingTime,
-      quantity,
-      guestCount: input.guestCount ?? quantity,
-      notes: booking.notes ?? null,
-      totalAmount: lineTotal,
-      totalPrice: lineTotal,
-      currency: tier.currency,
-      status: booking.status,
-      createdAt: booking.createdAt,
-      updatedAt: booking.updatedAt,
-    };
+    return { id: booking.id };
   },
 
   list: async (

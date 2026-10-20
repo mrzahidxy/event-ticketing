@@ -1014,6 +1014,50 @@ export const createAnalyticsService = (deps: AnalyticsServiceDependencies) => {
   const helpers = createAnalyticsServiceHelpers(deps);
 
   return {
+    getEventReadModelAnalytics: async (actor: AuthenticatedUser, organizerId?: string) => {
+      const scope = await resolveAnalyticsScope(deps, actor, organizerId);
+      const rows = await deps.prisma.eventAnalytics.findMany({
+        where: scope.visibility === 'platform' ? {} : { organizerId: { in: scope.organizerIds } },
+        select: {
+          organizerId: true,
+          eventId: true,
+          totalBookings: true,
+          ticketsSold: true,
+          estimatedRevenue: true,
+          currency: true,
+          checkIns: true,
+          updatedAt: true,
+        },
+        orderBy: [{ updatedAt: 'desc' }, { organizerId: 'asc' }, { eventId: 'asc' }],
+      });
+      const eventMetadata = rows.length
+        ? await deps.prisma.event.findMany({
+            where: {
+              id: { in: rows.map((row) => row.eventId) },
+              ...(scope.visibility === 'platform'
+                ? {}
+                : { organizerId: { in: scope.organizerIds } }),
+            },
+            select: { id: true, organizerId: true, name: true },
+          })
+        : [];
+      const eventNames = new Map(
+        eventMetadata.map((event) => [
+          `${event.organizerId}:${event.id}`,
+          event.name,
+        ]),
+      );
+      return {
+        scope: formatScopePayload(scope),
+        rows: rows.map((row) => ({
+          ...row,
+          eventName: eventNames.get(`${row.organizerId}:${row.eventId}`) ?? null,
+          estimatedRevenue: row.estimatedRevenue.toFixed(2),
+          updatedAt: row.updatedAt.toISOString(),
+        })),
+      };
+    },
+
     getOverview: async (
       actor: AuthenticatedUser,
       input: AnalyticsQueryInput

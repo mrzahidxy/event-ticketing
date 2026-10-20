@@ -5,6 +5,7 @@ import { env } from './utils/env';
 import { logger } from './utils/logger';
 import { prisma } from './utils/prisma';
 import { cache } from './utils/cache';
+import { connectKafkaProducer, disconnectKafkaProducer } from './utils/kafka';
 
 async function startServer(): Promise<void> {
   const server = http.createServer(app);
@@ -12,6 +13,9 @@ async function startServer(): Promise<void> {
 
   // Initialize cache
   cache.connect();
+  void connectKafkaProducer().catch((error) => {
+    logger.error({ err: error }, 'Kafka startup connection failed; business API remains available');
+  });
 
   server.listen(env.PORT, env.HOST, () => {
     logger.info(`Server listening on http://${env.HOST}:${env.PORT}`);
@@ -53,6 +57,12 @@ async function startServer(): Promise<void> {
       await prisma.$disconnect();
     } catch (error) {
       logger.error({ error }, 'Error while disconnecting Prisma');
+    }
+
+    try {
+      await disconnectKafkaProducer();
+    } catch (error) {
+      logger.error({ err: error }, 'Error while disconnecting Kafka producer');
     }
 
     try {
