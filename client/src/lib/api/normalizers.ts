@@ -434,7 +434,7 @@ export function normalizeEvent(payload: unknown): Event {
     capacity: record?.capacity === undefined ? undefined : toNumberValue(record?.capacity),
     createdAt: toStringValue(record?.createdAt),
     description: toStringValue(record?.description),
-    eventDate: toStringValue(record?.eventDate) || undefined,
+    eventDate: toStringValue(record?.eventDate ?? record?.startsAt) || undefined,
     eventTime: toStringValue(record?.eventTime) || undefined,
     id: toStringValue(record?.id),
     isPublished: toBooleanValue(record?.isPublished),
@@ -442,6 +442,8 @@ export function normalizeEvent(payload: unknown): Event {
     name: toStringValue(record?.name),
     organizerId: toStringValue(record?.organizerId),
     price: toNumberValue(record?.price),
+    startsAt: toNullableString(record?.startsAt) ?? undefined,
+    endsAt: toNullableString(record?.endsAt) ?? undefined,
     ticketTiers: extractList(record?.ticketTiers, ['ticketTiers'], normalizeTicketTier),
     updatedAt: toStringValue(record?.updatedAt),
   }

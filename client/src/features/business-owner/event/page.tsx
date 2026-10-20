@@ -41,9 +41,15 @@ const organizerEventFormSchema = z
   .object({
     name: z.string().trim().min(2, 'Name is required').max(120),
     description: z.string().trim().max(2000).optional(),
+    startsAt: z.string().optional(),
+    endsAt: z.string().optional(),
     price: z.coerce.number().positive('Price must be greater than 0').optional(),
     isPublished: z.enum(['true', 'false']).default('false'),
   })
+  .refine(
+    (values) => !values.startsAt || !values.endsAt || new Date(values.startsAt) < new Date(values.endsAt),
+    { message: 'Event start must be before event end', path: ['endsAt'] },
+  )
 
 type OrganizerEventFormValues = z.infer<typeof organizerEventFormSchema>
 
@@ -72,6 +78,8 @@ export default function EventPage() {
     defaultValues: {
       name: '',
       description: '',
+      startsAt: '',
+      endsAt: '',
       price: 1,
       isPublished: 'false',
     },
@@ -87,15 +95,19 @@ export default function EventPage() {
     mutationFn: (values: OrganizerEventFormValues) =>
       createOrganizerEvent(organizerId as string, {
         description: values.description?.trim() || undefined,
+        endsAt: values.endsAt ? new Date(values.endsAt).toISOString() : null,
         isPublished: values.isPublished === 'true',
         name: values.name.trim(),
         price: values.price ?? 1,
+        startsAt: values.startsAt ? new Date(values.startsAt).toISOString() : null,
       }),
     onSuccess: () => {
       toast.success('Event created')
       eventForm.reset({
         name: '',
         description: '',
+        endsAt: '',
+        startsAt: '',
         price: 1,
         isPublished: 'false',
       })
@@ -111,8 +123,10 @@ export default function EventPage() {
     mutationFn: (payload: { eventId: string; values: OrganizerEventFormValues }) =>
       updateOrganizerEvent(organizerId as string, payload.eventId, {
         description: payload.values.description?.trim() || null,
+        endsAt: payload.values.endsAt ? new Date(payload.values.endsAt).toISOString() : null,
         isPublished: payload.values.isPublished === 'true',
         name: payload.values.name.trim(),
+        startsAt: payload.values.startsAt ? new Date(payload.values.startsAt).toISOString() : null,
       }),
     onSuccess: () => {
       toast.success('Event updated')
@@ -147,6 +161,8 @@ export default function EventPage() {
     eventForm.reset({
       name: '',
       description: '',
+      startsAt: '',
+      endsAt: '',
       price: 1,
       isPublished: 'false',
     })
@@ -165,6 +181,16 @@ export default function EventPage() {
     eventForm.reset({
       name: event.name ?? '',
       description: event.description ?? '',
+      endsAt: event.endsAt
+        ? new Date(new Date(event.endsAt).getTime() - new Date(event.endsAt).getTimezoneOffset() * 60_000)
+            .toISOString()
+            .slice(0, 16)
+        : '',
+      startsAt: event.startsAt
+        ? new Date(new Date(event.startsAt).getTime() - new Date(event.startsAt).getTimezoneOffset() * 60_000)
+            .toISOString()
+            .slice(0, 16)
+        : '',
       isPublished: event.isPublished ? 'true' : 'false',
     })
     setEventModalOpen(true)
@@ -400,6 +426,30 @@ export default function EventPage() {
                 <option value="false">Draft</option>
                 <option value="true">Published</option>
               </Select>
+            </FormField>
+            <FormField
+              label="Event starts"
+              htmlFor="organizer-event-starts-at"
+              error={eventForm.formState.errors.startsAt?.message}
+            >
+              <Input
+                id="organizer-event-starts-at"
+                type="datetime-local"
+                {...eventForm.register('startsAt')}
+                disabled={isSavingEvent}
+              />
+            </FormField>
+            <FormField
+              label="Event ends"
+              htmlFor="organizer-event-ends-at"
+              error={eventForm.formState.errors.endsAt?.message}
+            >
+              <Input
+                id="organizer-event-ends-at"
+                type="datetime-local"
+                {...eventForm.register('endsAt')}
+                disabled={isSavingEvent}
+              />
             </FormField>
           </div>
 
