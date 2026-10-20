@@ -36,7 +36,7 @@ export const analyticsDomainEventSchema: z.ZodType<DomainEvent> = z.discriminate
 export const projectAnalyticsEvent = async (
   db: Pick<PrismaClient, '$transaction'>,
   event: DomainEvent,
-): Promise<'processed' | 'duplicate'> => {
+): Promise<'processed' | 'duplicate' | 'currency-mismatch'> => {
   return db.$transaction(async (tx) => {
     // The unique key makes concurrent redeliveries idempotent.
     const inserted = await tx.$executeRaw`
@@ -82,7 +82,8 @@ export const projectAnalyticsEvent = async (
       WHERE EXCLUDED."currency" IS NULL OR "EventAnalytics"."currency" IS NULL
         OR "EventAnalytics"."currency" = EXCLUDED."currency"
     `;
-    if (changed !== 1) throw new Error('EventAnalytics currency mismatch');
+    // Keep the idempotency marker so this unsupported currency event is skipped on replay.
+    if (changed !== 1) return 'currency-mismatch';
     return 'processed';
   });
 };
