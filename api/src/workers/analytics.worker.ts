@@ -72,9 +72,14 @@ const start = async () => {
       } else {
         try {
           const result = await projectAnalyticsEvent(prisma, validated.data);
-          logger.info({ ...context, domainEventId: validated.data.domainEventId,
+          const details = { ...context, domainEventId: validated.data.domainEventId,
             eventType: validated.data.eventType, organizerId: validated.data.tenantId,
-            eventId: validated.data.data.eventId, result }, 'Analytics projection completed');
+            eventId: validated.data.data.eventId, result };
+          if (result === 'currency-mismatch') {
+            logger.warn(details, 'Analytics event skipped because the event uses a different currency');
+          } else {
+            logger.info(details, 'Analytics projection completed');
+          }
         } catch (err) {
           logger.error({ ...context, err }, 'Analytics transaction failed; offset remains uncommitted');
           throw err;
