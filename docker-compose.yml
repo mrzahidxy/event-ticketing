@@ -77,6 +77,27 @@ services:
       retries: 5
       start_period: 20s
 
+  analytics-worker:
+    build:
+      context: ./api
+    command: ["npm", "run", "worker:analytics:compiled"]
+    environment:
+      NODE_ENV: development
+      APP_NAME: analytics-worker
+      DATABASE_URL: ${DATABASE_URL:?required}
+      DIRECT_URL: ${DIRECT_URL:?required}
+      JWT_SECRET: ${JWT_SECRET:-change-me-jwt-secret}
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_CLIENT_ID: ${KAFKA_CLIENT_ID:-event-intelligence-backend}
+      KAFKA_TOPIC_DOMAIN_EVENTS: ${KAFKA_TOPIC_DOMAIN_EVENTS:-domain-events}
+      KAFKA_ANALYTICS_GROUP_ID: ${KAFKA_ANALYTICS_GROUP_ID:-analytics-worker}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+
   postgres:
     image: postgres:16-alpine
     environment:

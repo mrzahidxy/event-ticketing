@@ -9,7 +9,7 @@ const consumer = new Kafka({
   clientId: `${env.KAFKA_CLIENT_ID}-consumer`,
   brokers: env.KAFKA_BROKERS.split(',').map((broker) => broker.trim()),
   connectionTimeout: 3000,
-  requestTimeout: 5000,
+  requestTimeout: 30000,
   retry: { retries: 2, restartOnFailure: async () => false },
   logLevel: logLevel.ERROR,
   logCreator: () => ({ log }) => logger.error({ kafka: log }, 'Analytics Kafka client error'),

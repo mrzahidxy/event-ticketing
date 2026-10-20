@@ -10,6 +10,7 @@ export type AnalyticsEventsResponse = {
   rows: {
     organizerId: string
     eventId: string
+    eventName: string | null
     totalBookings: number
     ticketsSold: number
     estimatedRevenue: string

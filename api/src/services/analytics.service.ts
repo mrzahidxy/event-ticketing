@@ -1030,10 +1030,28 @@ export const createAnalyticsService = (deps: AnalyticsServiceDependencies) => {
         },
         orderBy: [{ updatedAt: 'desc' }, { organizerId: 'asc' }, { eventId: 'asc' }],
       });
+      const eventMetadata = rows.length
+        ? await deps.prisma.event.findMany({
+            where: {
+              id: { in: rows.map((row) => row.eventId) },
+              ...(scope.visibility === 'platform'
+                ? {}
+                : { organizerId: { in: scope.organizerIds } }),
+            },
+            select: { id: true, organizerId: true, name: true },
+          })
+        : [];
+      const eventNames = new Map(
+        eventMetadata.map((event) => [
+          `${event.organizerId}:${event.id}`,
+          event.name,
+        ]),
+      );
       return {
         scope: formatScopePayload(scope),
         rows: rows.map((row) => ({
           ...row,
+          eventName: eventNames.get(`${row.organizerId}:${row.eventId}`) ?? null,
           estimatedRevenue: row.estimatedRevenue.toFixed(2),
           updatedAt: row.updatedAt.toISOString(),
         })),

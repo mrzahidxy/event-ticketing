@@ -52,11 +52,7 @@ const corsOptions: CorsOptions = {
   credentials: true,
 };
 
-app.post(
-  "/api/payments/stripe/webhook",
-  express.raw({ type: "application/json" }),
-  paymentWebhookRouter,
-);
+app.use("/api/payments/stripe", paymentWebhookRouter);
 
 app.use(limiter);
 app.use(helmet());
