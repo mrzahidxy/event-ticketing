@@ -14,6 +14,7 @@ import type {
 } from '../schemas/organizer.schema';
 import type { UpdateOrganizerStatusInput } from '../schemas/admin.schema';
 import { successResponse } from '../utils/api-response';
+import { popularEventsService } from '../services/popular-events.service';
 
 export const organizerController = {
   create: async (req: AuthenticatedRequest, res: Response) => {
@@ -33,6 +34,14 @@ export const organizerController = {
   listPublic: async (_req: Request, res: Response) => {
     const organizers = await organizerService.listPublic();
     res.status(200).json(successResponse(organizers));
+  },
+
+  listPopularPublic: async (_req: Request, res: Response) => {
+    const items = await popularEventsService.listPopular();
+    res
+      .set('Cache-Control', 'public, max-age=60, stale-while-revalidate=120')
+      .status(200)
+      .json(successResponse(items));
   },
 
   getPublicById: async (req: Request, res: Response) => {

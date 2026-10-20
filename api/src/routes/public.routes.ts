@@ -11,6 +11,7 @@ import { createPublicBookingSchema } from '../schemas/booking.schema';
 const router = Router();
 
 router.get('/organizers', organizerController.listPublic);
+router.get('/recommendations/popular-events', organizerController.listPopularPublic);
 
 router.get(
   '/organizers/:organizerId',

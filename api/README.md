@@ -67,6 +67,12 @@ Expected response:
 {"status":"ok"}
 ```
 
+## Public Popular Events
+
+The public homepage calls `GET /api/public/recommendations/popular-events`. It returns up to five published events from active organizers with at least one recorded ticket sale, ranked by the FastAPI service using recorded all-time ticket sales. It includes events currently in progress and events with no start or end time; events with only one time set are excluded because their running state is unclear. The public response does not include aggregate sales or revenue totals.
+
+When running the API directly on the host, start the local recommendation service with `docker compose up -d --build recommendation-service`; the Compose port is bound to localhost. The API defaults to `http://localhost:8000`, while the Compose API container uses the private service hostname.
+
 The health endpoint intentionally does not expose database, Redis, secrets, uptime, or other internals.
 
 ## Redis Verification
