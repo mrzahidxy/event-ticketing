@@ -6,7 +6,8 @@ This repo supports a simple Docker Hub + VPS deploy flow for pushes to `main`.
 
 - `.github/workflows/api.yml` builds and pushes `${DOCKERHUB_USERNAME}/event-ticketing-api:latest` and a SHA tag.
 - `.github/workflows/client.yml` builds and pushes `${DOCKERHUB_USERNAME}/event-ticketing-client:latest` and a SHA tag.
-- `.github/workflows/deploy.yml` waits for both image workflows to succeed for the same commit, SSHs into the VPS, pulls the latest images, runs `prisma migrate deploy`, restarts Compose, prunes old images, and checks `/health`.
+- `.github/workflows/recommendations.yml` builds and pushes `${DOCKERHUB_USERNAME}/event-ticketing-recommendations:latest` and a SHA tag.
+- `.github/workflows/deploy.yml` waits for all three image workflows to succeed for the same commit, SSHs into the VPS, pulls the latest images, runs `prisma migrate deploy`, restarts Compose, prunes old images, and checks `/health`.
 
 ## GitHub Secrets And Variables
 
@@ -49,9 +50,11 @@ DATABASE_URL=postgresql://postgres:strong-password@postgres:5432/event_ticketing
 DIRECT_URL=postgresql://postgres:strong-password@postgres:5432/event_ticketing
 REDIS_URL=redis://redis:6379
 API_INTERNAL_BASE_URL=http://api:4000
+RECOMMENDATION_SERVICE_URL=http://recommendation-service:8000
 ```
 
 Postgres and Redis are intentionally not published to host ports in `docker-compose.prod.yml`. Only the API and client are bound to `127.0.0.1` for a local reverse proxy such as Nginx or Caddy.
+The recommendation service is available only on the Compose network and is called by the API.
 
 ## Deploy
 
@@ -89,6 +92,7 @@ The workflows also push SHA-tagged images. To roll back, edit `/opt/apps/event-t
 ```yaml
 image: your-dockerhub-username/event-ticketing-api:<sha>
 image: your-dockerhub-username/event-ticketing-client:<sha>
+image: your-dockerhub-username/event-ticketing-recommendations:<sha>
 ```
 
 Then restart:
