@@ -62,6 +62,7 @@ const baseEnvSchema = z.object({
   KAFKA_CLIENT_ID: z.string().min(1).default('event-intelligence-backend'),
   KAFKA_TOPIC_DOMAIN_EVENTS: z.string().min(1).default('domain-events'),
   KAFKA_ANALYTICS_GROUP_ID: z.string().min(1).default('analytics-worker'),
+  RECOMMENDATION_SERVICE_URL: z.string().url().default('http://localhost:8000'),
 });
 
 const envSchema = baseEnvSchema.superRefine((data, ctx) => {

@@ -1,18 +1,93 @@
-import { getPublicOrganizersPage } from '@/features/public-organizer/api/public-organizer-client'
+import {
+  getPopularEventsPage,
+  getPublicOrganizersPage,
+  type PublicPopularEvent,
+} from '@/features/public-organizer/api/public-organizer-client'
 import { ArrowRight, CalendarDays, MapPin, Ticket } from 'lucide-react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatCurrency, formatDate } from '@/lib/format'
+import type { Event } from '@/types/domain'
 
 export const metadata: Metadata = {
   title: 'Events',
   description: 'Explore published events and choose tickets from event organizers.',
 }
 
+type EventCardProps = {
+  event: Event
+  organizer: { id: string; name: string }
+  popularityReason?: string
+}
+
+function PublicEventCard({ event, organizer, popularityReason }: EventCardProps) {
+  const firstTier = event.ticketTiers?.[0]
+  const available =
+    popularityReason
+      ? 'View ticket options'
+      : firstTier?.quantityTotal === null
+      ? 'Unlimited'
+      : firstTier
+        ? `${Math.max(firstTier.quantityTotal - firstTier.quantitySold, 0)} left`
+        : 'Unavailable'
+
+  return (
+    <Card className="group flex h-full flex-col overflow-hidden border-slate-200 bg-white/95 transition hover:-translate-y-1 hover:shadow-lg">
+      <CardHeader className="flex-1 space-y-3 p-5">
+        <div className="flex items-start justify-between gap-3">
+          <CardTitle className="text-xl">{event.name}</CardTitle>
+          {firstTier ? (
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-900">
+              {formatCurrency(firstTier.price, firstTier.currency.toUpperCase())}
+            </span>
+          ) : null}
+        </div>
+        {popularityReason ? (
+          <p className="text-sm font-medium text-teal-700">{popularityReason}</p>
+        ) : null}
+        {event.description ? (
+          <p className="text-sm leading-6 text-slate-600">{event.description}</p>
+        ) : null}
+      </CardHeader>
+      <CardContent className="space-y-3 border-t border-slate-100 px-5 py-4">
+        <div className="space-y-2 text-sm text-slate-500">
+          <p>By {organizer.name}</p>
+          {event.eventDate ? (
+            <div className="flex items-center gap-2">
+              <CalendarDays className="h-4 w-4" />
+              <span>{formatDate(event.eventDate)}</span>
+            </div>
+          ) : null}
+          {event.location ? (
+            <div className="flex items-center gap-2">
+              <MapPin className="h-4 w-4" />
+              <span>{event.location}</span>
+            </div>
+          ) : null}
+          <div className="flex items-center gap-2">
+            <Ticket className="h-4 w-4" />
+            <span>{available}</span>
+          </div>
+        </div>
+        <Link
+          href={`/organizers/${organizer.id}?eventId=${event.id}#booking-form`}
+          className={buttonVariants({ size: 'sm' })}
+        >
+          <ArrowRight className="h-4 w-4" />
+          Book event
+        </Link>
+      </CardContent>
+    </Card>
+  )
+}
+
 export default async function PublicOrganizersIndexPage() {
-  const organizers = await getPublicOrganizersPage()
+  const [organizers, popularEvents] = await Promise.all([
+    getPublicOrganizersPage(),
+    getPopularEventsPage(),
+  ])
   const eventCards = organizers.flatMap(({ organizer, publishedEvents }) =>
     publishedEvents.map((event) => ({ organizer, event })),
   )
@@ -40,7 +115,33 @@ export default async function PublicOrganizersIndexPage() {
           </div>
         </section>
 
-        <section>
+        {popularEvents.length > 0 ? (
+          <section className="mb-10 space-y-4" aria-labelledby="popular-events-heading">
+            <div>
+              <h2 id="popular-events-heading" className="text-2xl font-semibold tracking-tight text-slate-900">
+                Popular Events
+              </h2>
+              <p className="mt-1 text-sm text-slate-600">
+                Popular events from active organizers.
+              </p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 xl:gap-5">
+              {popularEvents.map((item: PublicPopularEvent) => (
+                <PublicEventCard
+                  key={item.event.id}
+                  event={item.event}
+                  organizer={item.organizer}
+                  popularityReason={item.reason}
+                />
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        <section className="space-y-4">
+          <h2 className="text-2xl font-semibold tracking-tight text-slate-900">
+            Browse all events
+          </h2>
           {eventCards.length === 0 ? (
             <Card className="border-dashed border-slate-300 bg-white/80">
               <CardContent className="p-8 text-center sm:p-12">
@@ -57,66 +158,12 @@ export default async function PublicOrganizersIndexPage() {
           ) : (
             <div className="grid gap-4 md:grid-cols-2 xl:gap-5">
               {eventCards.map(({ organizer, event }) => {
-                const firstTier = event.ticketTiers?.[0]
-                const available =
-                  firstTier?.quantityTotal === null
-                    ? 'Unlimited'
-                    : firstTier
-                      ? `${Math.max(firstTier.quantityTotal - firstTier.quantitySold, 0)} left`
-                      : 'Unavailable'
-
                 return (
-                  <Card
+                  <PublicEventCard
                     key={`${organizer.id}-${event.id}`}
-                    className="group flex h-full flex-col overflow-hidden border-slate-200 bg-white/95 transition hover:-translate-y-1 hover:shadow-lg"
-                  >
-                    <CardHeader className="flex-1 space-y-3 p-5">
-                      <div className="flex items-start justify-between gap-3">
-                        <CardTitle className="text-xl">{event.name}</CardTitle>
-                        {firstTier ? (
-                          <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-900">
-                            {formatCurrency(
-                              firstTier.price,
-                              firstTier.currency.toUpperCase(),
-                            )}
-                          </span>
-                        ) : null}
-                      </div>
-                      {event.description ? (
-                        <p className="text-sm leading-6 text-slate-600">
-                          {event.description}
-                        </p>
-                      ) : null}
-                    </CardHeader>
-                    <CardContent className="space-y-3 border-t border-slate-100 px-5 py-4">
-                      <div className="space-y-2 text-sm text-slate-500">
-                        <p>By {organizer.name}</p>
-                        {event.eventDate ? (
-                          <div className="flex items-center gap-2">
-                            <CalendarDays className="h-4 w-4" />
-                            <span>{formatDate(event.eventDate)}</span>
-                          </div>
-                        ) : null}
-                        {event.location ? (
-                          <div className="flex items-center gap-2">
-                            <MapPin className="h-4 w-4" />
-                            <span>{event.location}</span>
-                          </div>
-                        ) : null}
-                        <div className="flex items-center gap-2">
-                          <Ticket className="h-4 w-4" />
-                          <span>{available}</span>
-                        </div>
-                      </div>
-                      <Link
-                        href={`/organizers/${organizer.id}?eventId=${event.id}#booking-form`}
-                        className={buttonVariants({ size: 'sm' })}
-                      >
-                        <ArrowRight className="h-4 w-4" />
-                        Book event
-                      </Link>
-                    </CardContent>
-                  </Card>
+                    event={event}
+                    organizer={organizer}
+                  />
                 )
               })}
             </div>

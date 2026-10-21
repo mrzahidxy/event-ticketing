@@ -32,6 +32,8 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      RECOMMENDATION_SERVICE_URL: http://recommendation-service:8000
     depends_on:
       postgres:
         condition: service_healthy
@@ -39,6 +41,10 @@ services:
         condition: service_healthy
     ports:
       - "127.0.0.1:4000:4000"
+
+  recommendation-service:
+    image: ${DOCKERHUB_USERNAME}/event-ticketing-recommendations:latest
+    restart: unless-stopped
 
   client:
     image: ${DOCKERHUB_USERNAME}/event-ticketing-client:latest

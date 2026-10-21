@@ -37,6 +37,8 @@ export type CreateOrganizerEventRequest = {
   name: string
   isPublished?: boolean
   price: number
+  startsAt?: string | null
+  endsAt?: string | null
 }
 
 export type UpdateOrganizerEventRequest = {
@@ -44,6 +46,8 @@ export type UpdateOrganizerEventRequest = {
   name?: string
   isPublished?: boolean
   price?: number
+  startsAt?: string | null
+  endsAt?: string | null
 }
 
 export type CreateTicketTierRequest = {
