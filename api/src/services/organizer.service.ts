@@ -541,6 +541,26 @@ export const organizerService = {
     }
 
     return prisma.$transaction(async (tx) => {
+      const [currentDates] = await tx.$queryRaw<Array<{
+        startsAt: Date | null;
+        endsAt: Date | null;
+      }>>`
+        SELECT "startsAt", "endsAt"
+        FROM "Event"
+        WHERE id = ${event.id} AND "organizerId" = ${scope.organizer.id}
+        FOR UPDATE
+      `;
+
+      if (!currentDates) {
+        throw new HttpError(403, 'Forbidden: event is outside this organizer');
+      }
+
+      const startsAt = input.startsAt !== undefined ? input.startsAt : currentDates.startsAt;
+      const endsAt = input.endsAt !== undefined ? input.endsAt : currentDates.endsAt;
+      if (startsAt && endsAt && startsAt >= endsAt) {
+        throw new HttpError(400, 'Event start must be before event end');
+      }
+
       const updates: Prisma.EventUpdateInput = {};
 
       if (input.name !== undefined) {

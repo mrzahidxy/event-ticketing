@@ -121,38 +121,39 @@ const requestRanking = async (
 export const popularEventsService = {
   listPopular: async () => {
     const now = new Date();
+    const popularEventRows = await prisma.$queryRaw<Array<{
+      id: string;
+      organizerId: string;
+      ticketsSold: number;
+    }>>`
+      SELECT e.id, e."organizerId", analytics."ticketsSold"
+      FROM "Event" AS e
+      INNER JOIN "Organizer" AS organizer ON organizer.id = e."organizerId"
+      INNER JOIN "EventAnalytics" AS analytics
+        ON analytics."organizerId" = e."organizerId"
+        AND analytics."eventId" = e.id
+      WHERE e."isPublished" = true
+        AND organizer."isSuspended" = false
+        AND analytics."ticketsSold" > 0
+        AND (
+          (e."startsAt" <= ${now} AND e."endsAt" > ${now})
+          OR (e."startsAt" IS NULL AND e."endsAt" IS NULL)
+        )
+      ORDER BY analytics."ticketsSold" DESC, e."startsAt" ASC NULLS LAST, e.id ASC
+      LIMIT ${CANDIDATE_LIMIT}
+    `;
+
+    if (popularEventRows.length === 0) return [];
+
     const candidates = await prisma.event.findMany({
-      where: {
-        isPublished: true,
-        OR: [
-          { startsAt: { lte: now }, endsAt: { gt: now } },
-          { startsAt: null, endsAt: null },
-        ],
-        organizer: { isSuspended: false },
-      },
-      orderBy: [{ startsAt: 'asc' }, { id: 'asc' }],
-      take: CANDIDATE_LIMIT,
+      where: { id: { in: popularEventRows.map(({ id }) => id) } },
       select: createCandidateSelect(now),
     });
-
-    if (candidates.length === 0) return [];
-
-    const analytics = await prisma.eventAnalytics.findMany({
-      where: {
-        OR: candidates.map(({ organizerId, id }) => ({ organizerId, eventId: id })),
-      },
-      select: { organizerId: true, eventId: true, ticketsSold: true },
-    });
     const salesByEvent = new Map(
-      analytics.map((row) => [`${row.organizerId}:${row.eventId}`, row.ticketsSold]),
+      popularEventRows.map((row) => [`${row.organizerId}:${row.id}`, row.ticketsSold]),
     );
 
-    const eventsWithSales = candidates.filter(
-      (event) => (salesByEvent.get(`${event.organizerId}:${event.id}`) ?? 0) > 0,
-    );
-    if (eventsWithSales.length === 0) return [];
-
-    const ranked = await requestRanking(eventsWithSales, salesByEvent);
+    const ranked = await requestRanking(candidates, salesByEvent);
     const eventsById = new Map(candidates.map((event) => [event.id, event]));
 
     return ranked.map(({ eventId, rank }) => {
