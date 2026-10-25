@@ -997,6 +997,18 @@ const organizerPaths: OAS3Definition['paths'] = {
                 description: {
                   type: 'string',
                 },
+                startsAt: {
+                  type: 'string',
+                  format: 'date-time',
+                  nullable: true,
+                  description: 'Optional event start time.',
+                },
+                endsAt: {
+                  type: 'string',
+                  format: 'date-time',
+                  nullable: true,
+                  description: 'Optional event end time. Published events need a start and end time to appear in Popular Events while in progress.',
+                },
                 price: {
                   type: 'number',
                   minimum: 0.01,
@@ -1070,6 +1082,16 @@ const organizerPaths: OAS3Definition['paths'] = {
                 },
                 description: {
                   type: 'string',
+                  nullable: true,
+                },
+                startsAt: {
+                  type: 'string',
+                  format: 'date-time',
+                  nullable: true,
+                },
+                endsAt: {
+                  type: 'string',
+                  format: 'date-time',
                   nullable: true,
                 },
                 price: {
@@ -1280,6 +1302,23 @@ const organizerPaths: OAS3Definition['paths'] = {
         404: {
           description: 'Staff assignment not found',
         },
+      },
+    },
+  },
+};
+
+const publicRecommendationPaths: OAS3Definition['paths'] = {
+  '/public/recommendations/popular-events': {
+    get: {
+      summary: 'List popular upcoming public events',
+      description:
+        'Returns up to five published upcoming events from active organizers, ranked by recorded all-time ticket sales. Exact sales and revenue figures are not returned.',
+      tags: ['Public Recommendations'],
+      security: [],
+      responses: {
+        200: { description: 'Popular public event cards' },
+        502: { description: 'Recommendation service returned an invalid response' },
+        503: { description: 'Recommendation service is temporarily unavailable' },
       },
     },
   },
@@ -1645,12 +1684,17 @@ const swaggerDefinition: OAS3Definition = {
       name: 'Analytics',
       description: 'Aggregated booking, payment, event, and user reporting endpoints',
     },
+    {
+      name: 'Public Recommendations',
+      description: 'Public event discovery recommendations',
+    },
   ],
   paths: {
     ...healthPaths,
     ...authPaths,
     ...bookingPaths,
     ...organizerPaths,
+    ...publicRecommendationPaths,
     ...userPaths,
     ...paymentPaths,
     ...ticketPaths,

@@ -33,15 +33,25 @@ export const updateOrganizerSchema = z.object({
 export const createEventSchema = z.object({
   name: z.string().min(1, 'Event name is required'),
   description: z.string().optional(),
+  startsAt: z.coerce.date().nullable().optional(),
+  endsAt: z.coerce.date().nullable().optional(),
   price: z.coerce.number().positive('Event price must be greater than 0'),
   isPublished: z.boolean().optional().default(false),
+}).refine((event) => !event.startsAt || !event.endsAt || event.startsAt < event.endsAt, {
+  message: 'Event start must be before event end',
+  path: ['endsAt'],
 });
 
 export const updateEventSchema = z.object({
   name: z.string().min(1, 'Event name is required').optional(),
   description: z.string().nullable().optional(),
+  startsAt: z.coerce.date().nullable().optional(),
+  endsAt: z.coerce.date().nullable().optional(),
   price: z.coerce.number().positive('Event price must be greater than 0').optional(),
   isPublished: z.boolean().optional(),
+}).refine((event) => !event.startsAt || !event.endsAt || event.startsAt < event.endsAt, {
+  message: 'Event start must be before event end',
+  path: ['endsAt'],
 });
 
 const SUPPORTED_CURRENCIES = ['usd', 'eur', 'gbp', 'cad', 'aud'] as const;

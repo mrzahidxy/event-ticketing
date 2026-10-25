@@ -18,14 +18,14 @@ jobs:
       contents: read
 
     steps:
-      - name: Confirm both image workflows succeeded
+      - name: Confirm all image workflows succeeded
         env:
           GH_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
           REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
-          for workflow in "Build and Push API Image" "Build and Push Client Image"; do
+          for workflow in "Build and Push API Image" "Build and Push Client Image" "Build and Push Recommendation Image"; do
             echo "Waiting for ${workflow} on ${HEAD_SHA}"
             for attempt in {1..30}; do
               conclusion="$(gh run list --repo "${REPOSITORY}" --workflow "${workflow}" --commit "${HEAD_SHA}" --status completed --limit 1 --json conclusion --jq '.[0].conclusion // empty')"

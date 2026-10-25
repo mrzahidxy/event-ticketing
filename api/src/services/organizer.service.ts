@@ -21,6 +21,9 @@ const EVENT_SELECT = {
   organizerId: true,
   name: true,
   description: true,
+  location: true,
+  startsAt: true,
+  endsAt: true,
   isPublished: true,
   createdAt: true,
   updatedAt: true,
@@ -61,6 +64,9 @@ const PUBLIC_EVENT_SELECT = {
   organizerId: true,
   name: true,
   description: true,
+  location: true,
+  startsAt: true,
+  endsAt: true,
   isPublished: true,
   createdAt: true,
   updatedAt: true,
@@ -461,7 +467,14 @@ export const organizerService = {
 
   createEvent: async (
     organizerId: string,
-    input: { name: string; description?: string | null; price: number; isPublished?: boolean },
+    input: {
+      name: string;
+      description?: string | null;
+      startsAt?: Date | null;
+      endsAt?: Date | null;
+      price: number;
+      isPublished?: boolean;
+    },
     actor: AuthenticatedUser
   ): Promise<EventDetail> => {
     const scope = await getOrganizerScope(organizerId, actor);
@@ -475,6 +488,8 @@ export const organizerService = {
           organizerId: scope.organizer.id,
           name: input.name,
           description: input.description ?? null,
+          startsAt: input.startsAt ?? null,
+          endsAt: input.endsAt ?? null,
           isPublished: input.isPublished ?? false,
         },
         select: EVENT_SELECT,
@@ -495,7 +510,14 @@ export const organizerService = {
   updateEvent: async (
     organizerId: string,
     eventId: string,
-    input: { name?: string; description?: string | null; price?: number; isPublished?: boolean },
+    input: {
+      name?: string;
+      description?: string | null;
+      startsAt?: Date | null;
+      endsAt?: Date | null;
+      price?: number;
+      isPublished?: boolean;
+    },
     actor: AuthenticatedUser
   ): Promise<EventDetail> => {
     const scope = await getOrganizerScope(organizerId, actor);
@@ -519,6 +541,26 @@ export const organizerService = {
     }
 
     return prisma.$transaction(async (tx) => {
+      const [currentDates] = await tx.$queryRaw<Array<{
+        startsAt: Date | null;
+        endsAt: Date | null;
+      }>>`
+        SELECT "startsAt", "endsAt"
+        FROM "Event"
+        WHERE id = ${event.id} AND "organizerId" = ${scope.organizer.id}
+        FOR UPDATE
+      `;
+
+      if (!currentDates) {
+        throw new HttpError(403, 'Forbidden: event is outside this organizer');
+      }
+
+      const startsAt = input.startsAt !== undefined ? input.startsAt : currentDates.startsAt;
+      const endsAt = input.endsAt !== undefined ? input.endsAt : currentDates.endsAt;
+      if (startsAt && endsAt && startsAt >= endsAt) {
+        throw new HttpError(400, 'Event start must be before event end');
+      }
+
       const updates: Prisma.EventUpdateInput = {};
 
       if (input.name !== undefined) {
@@ -527,6 +569,14 @@ export const organizerService = {
 
       if (input.description !== undefined) {
         updates.description = input.description;
+      }
+
+      if (input.startsAt !== undefined) {
+        updates.startsAt = input.startsAt;
+      }
+
+      if (input.endsAt !== undefined) {
+        updates.endsAt = input.endsAt;
       }
 
       if (input.isPublished !== undefined) {

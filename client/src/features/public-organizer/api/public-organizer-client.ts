@@ -17,6 +17,13 @@ export type PublicOrganizerPageData = {
   publishedEvents: Event[]
 }
 
+export type PublicPopularEvent = {
+  event: Event
+  organizer: { id: string; name: string }
+  rank: number
+  reason: string
+}
+
 export type UserOrganizerCheckoutSession = {
   id: string
   url: string | null
@@ -49,6 +56,33 @@ export async function getPublicOrganizersPage(): Promise<PublicOrganizerPageData
   })
 
   return extractList(response, ['organizers', 'items', 'data'], normalizePublicOrganizerPageData)
+}
+
+export async function getPopularEventsPage(): Promise<PublicPopularEvent[]> {
+  try {
+    const response = await apiClient.get<unknown>(
+      '/api/public/recommendations/popular-events',
+      { cache: 'no-store' },
+    )
+
+    return extractList(response, ['items', 'data'], (payload) => {
+      const record = toObject(payload)
+      const organizer = toObject(record?.organizer)
+
+      return {
+        event: normalizeEvent(record?.event),
+        organizer: {
+          id: toStringValue(organizer?.id),
+          name: toStringValue(organizer?.name),
+        },
+        rank: toNumberValue(record?.rank),
+        reason: toStringValue(record?.reason, 'Popular with ticket buyers'),
+      }
+    })
+  } catch {
+    // Popular events are optional homepage content; the public catalog remains available.
+    return []
+  }
 }
 
 export async function getPublicOrganizerPage(organizerId: string): Promise<PublicOrganizerPageData> {

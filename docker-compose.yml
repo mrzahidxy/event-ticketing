@@ -53,6 +53,7 @@ services:
       KAFKA_BROKERS: kafka:9092
       KAFKA_CLIENT_ID: ${KAFKA_CLIENT_ID:-event-intelligence-backend}
       KAFKA_TOPIC_DOMAIN_EVENTS: ${KAFKA_TOPIC_DOMAIN_EVENTS:-domain-events}
+      RECOMMENDATION_SERVICE_URL: http://recommendation-service:8000
       CORS_ORIGIN: http://localhost:3000,http://127.0.0.1:3000,http://frontend:3000
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
@@ -97,6 +98,25 @@ services:
       kafka:
         condition: service_healthy
     restart: unless-stopped
+
+  recommendation-service:
+    build:
+      context: ./recommendation-service
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:8000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   postgres:
     image: postgres:16-alpine

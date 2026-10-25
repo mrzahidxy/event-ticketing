@@ -34,6 +34,8 @@ export type Event = {
   ticketTiers?: TicketTier[]
   eventDate?: string
   eventTime?: string
+  startsAt?: string
+  endsAt?: string
   location?: string
   capacity?: number
   isPublished: boolean

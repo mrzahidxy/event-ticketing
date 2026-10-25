@@ -258,6 +258,12 @@ Rules:
 * Do not add advanced ML unless explicitly requested.
 * Return explanations with ranked results where useful.
 
+### Popular Events MVP
+
+The public homepage shows a small Popular Events section. Express includes published events currently in progress and published events with no start or end time, excludes suspended organizers and events with no recorded ticket sales, reads each event's `EventAnalytics.ticketsSold`, and sends only event IDs, optional start times, and ticket totals to the stateless FastAPI ranker. Events with only one time set are excluded because their running state is unclear. FastAPI sorts by ticket sales descending, then dated events by start time, then event ID for stable ties; undated events follow dated events when sales tie. Express validates returned IDs and builds public event cards without exposing sales or revenue totals.
+
+The label means popular by recorded all-time ticket sales; it is not personalized or a time-based trending score. Owner analytics and the Task 8 projection remain independent. Any future Happening Soon or Recently Added lists should query Express/PostgreSQL directly.
+
 ## Kafka Event Contracts
 
 Use these event names:
