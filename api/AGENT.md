@@ -10,7 +10,7 @@ This service is the Express + Prisma API for the Multi-Tenant Event Intelligence
 - Framework: Express
 - Language: TypeScript
 - Database: PostgreSQL with Prisma
-- Auth: JWT access/refresh tokens with organizer roles
+- Auth: JWT access/refresh tokens with `ADMIN`, `OWNER`, `STAFF`, and `USER` platform roles plus organizer membership roles
 - Validation: Zod
 - Cache/lock: Redis
 - Payment: Stripe Checkout and webhooks
@@ -34,8 +34,8 @@ This service is the Express + Prisma API for the Multi-Tenant Event Intelligence
 - Treat Stripe webhooks as the payment source of truth.
 - Generate tickets only after confirmed payment.
 - Use unique opaque ticket tokens.
-- Use Redis duplicate scan locks before check-in status updates.
-- Publish `booking.created` and `checkin.created` events at real domain boundaries.
+- Use Redis `SET NX` as the duplicate-scan guard before the check-in transaction; PostgreSQL status and its unique check-in record remain authoritative.
+- Publish `booking.created` and `checkin.created` after their PostgreSQL transactions commit. There is no transactional outbox.
 - Keep payment webhook processing retry-safe.
 - Use a transaction for booking finalization.
 
@@ -46,18 +46,9 @@ This service is the Express + Prisma API for the Multi-Tenant Event Intelligence
 - Reject cross-organizer reads and writes with a clear authorization error.
 - Public routes must return only fields and published resources intended for unauthenticated users.
 
-## Current Modules
+## Current Code Layout
 
-- `auth`
-- `organizer`
-- `booking`
-- `payment`
-- `ticket/check-in` when added or expanded
-- `analytics`
-- `admin`
-- `public`
-
-Match the current file layout and naming before adding new folders.
+Routes, controllers, services, schemas, utilities, and workers live under `src/`. Current route/service areas include auth, organizers, users, bookings, payments, RBAC, analytics, admin, public events, and ticket check-in. Match the existing file names and layout before adding folders.
 
 ## Change Rules
 

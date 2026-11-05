@@ -1,122 +1,22 @@
-# Multi-Tenant Event Intelligence Platform API
+# API
 
-Express + Prisma backend for the Multi-Tenant Event Intelligence Platform.
-
-## Stack
-
-- Node.js 20+
-- Express
-- Prisma + PostgreSQL
-- Redis through `ioredis`
-- Stripe Checkout and webhooks
+Express and Prisma backend for event bookings, payments, ticketing, and analytics.
 
 ## Setup
 
-Start the shared local dependencies from the repo root:
+Use the [root README](../README.md) for environment configuration, local services, migrations, seed data, and startup. The API's `.env.example` lists API-specific variables. Prisma requires both `DATABASE_URL` and `DIRECT_URL`; for host-run commands, both should use the host-published database address.
 
-```bash
-docker compose up -d postgres redis
-docker compose exec redis redis-cli ping
-```
+## Commands
 
-Then run the API:
+Run these from `api/`:
 
-```bash
-cp .env.example .env
-npm install
-npm run prisma:generate
-npm run prisma:migrate
-npm run seed
-npm run dev
-```
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Start the development API |
+| `npm run build` | Compile TypeScript |
+| `npm run typecheck` | Run TypeScript checks without emitting files |
+| `npm run prisma:migrate` | Apply local development migrations |
+| `npm run prisma:migrate:deploy` | Apply existing migrations non-interactively |
+| `npm run seed` | Seed local data |
 
-PowerShell copy command:
-
-```powershell
-Copy-Item .env.example .env
-```
-
-The default `.env.example` expects:
-
-- PostgreSQL at `localhost:5433`
-- Redis at `localhost:6379`
-- API port `4000`
-- API host `0.0.0.0`
-
-## Scripts
-
-- `npm run dev` - start with nodemon
-- `npm run build` - compile TypeScript
-- `npm run typecheck` - no-emit type check
-- `npm run seed` - seed local test data
-- `npm run db:setup` - run local migration and seed
-- `npm run prisma:generate` - regenerate Prisma client
-- `npm run prisma:migrate` - run local dev migrations
-- `npm run prisma:migrate:deploy` - apply existing migrations non-interactively
-- `npm run prisma:studio` - open Prisma Studio
-
-## Health
-
-```bash
-curl http://localhost:4000/health
-```
-
-Expected response:
-
-```json
-{"status":"ok"}
-```
-
-## Public Popular Events
-
-The public homepage calls `GET /api/public/recommendations/popular-events`. It returns up to five published events from active organizers with at least one recorded ticket sale, ranked by the FastAPI service using recorded all-time ticket sales. It includes events currently in progress and events with no start or end time; events with only one time set are excluded because their running state is unclear. The public response does not include aggregate sales or revenue totals.
-
-When running the API directly on the host, start the local recommendation service with `docker compose up -d --build recommendation-service`; the Compose port is bound to localhost. The API defaults to `http://localhost:8000`, while the Compose API container uses the private service hostname.
-
-The health endpoint intentionally does not expose database, Redis, secrets, uptime, or other internals.
-
-## Redis Verification
-
-From the repo root:
-
-```bash
-docker compose exec redis redis-cli ping
-```
-
-Expected response:
-
-```text
-PONG
-```
-
-The API logs `Redis client connected` after startup when `REDIS_URL` is reachable. In development, the API can run without Redis; in production, `REDIS_URL` is required.
-
-- `DATABASE_URL`: PostgreSQL connection string
-- `JWT_SECRET`: signing key for auth tokens
-- `CORS_ORIGIN`: allowed frontend origins
-- `REDIS_URL`: Redis connection for revocation/runtime support
-- `STRIPE_SECRET_KEY`: Stripe secret key
-- `STRIPE_WEBHOOK_SECRET`: Stripe webhook secret
-
-- `GET /health`
-- `POST /api/auth/register`
-- `POST /api/auth/login`
-- `POST /api/auth/refresh`
-- `POST /api/auth/logout`
-- `GET /api/auth/me`
-- `GET /api/public/organizers/:organizerId`
-- `POST /api/public/organizers/:organizerId/bookings`
-- `POST /api/organizers`
-- `GET /api/organizers/:organizerId`
-- `PATCH /api/organizers/:organizerId`
-- `DELETE /api/organizers/:organizerId`
-- `GET /api/organizers/:organizerId/events`
-- `POST /api/organizers/:organizerId/events`
-- `PATCH /api/organizers/:organizerId/events/:eventId`
-- `DELETE /api/organizers/:organizerId/events/:eventId`
-- `GET /api/bookings`
-- `GET /api/bookings/:id`
-- `PATCH /api/bookings/:id`
-- `DELETE /api/bookings/:id`
-- `POST /api/payments/checkout-session`
-- `POST /api/payments/webhook`
+After startup, the health endpoint is `http://localhost:4000/health` and interactive API documentation is at `http://localhost:4000/api-docs`.

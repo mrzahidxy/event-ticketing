@@ -4,11 +4,11 @@ Next.js frontend for the Multi-Tenant Event Intelligence Platform.
 
 ## Setup
 
-Start the API first, then run:
+For environment files and full-stack setup, follow the [root README](../README.md). From `client/`, with the API running, start the client:
 
 ```bash
 cp .env.example .env
-npm install
+npm ci
 npm run dev
 ```
 

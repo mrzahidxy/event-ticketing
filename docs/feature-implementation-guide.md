@@ -8,7 +8,7 @@ This repository already contains working MVP foundations. Before implementing an
 
 Do **not** replace working auth, booking, Stripe, Prisma, Redis, or frontend flows unless the task explicitly requires it.
 
-Some target services may not exist yet. Only add missing services when the active task requires them.
+Treat the current source as authoritative; confirm service paths and behavior before proposing new services or changes.
 
 ## MVP Goal
 
@@ -18,11 +18,12 @@ The goal is a clean, demo-ready portfolio project, not a fully commercial ticket
 
 ## Users and Access
 
-* `OWNER`: manages organizer events, ticket tiers, publishing, bookings, analytics, and recommendations.
-* `STAFF`: validates and checks in tickets for assigned organizer scope.
+* `ADMIN`: platform-wide administration and support operations.
+* `OWNER`: manages an organizer's events, ticket tiers, publishing, bookings, staff assignments, and scoped analytics.
+* `STAFF`: performs check-in and permitted reads within assigned organizer scope.
 * `USER`: browses published events and buys tickets after signing in.
 
-Public event browsing does not require sign-in. Ticket checkout and booking history require an authenticated `USER` account.
+Public event browsing does not require sign-in. Checkout is restricted to an authenticated `USER`; the client booking-history page is for that user, while API booking reads also support authorized organizer and admin scopes.
 
 Protect organizer and staff routes. Scope organizer-owned data by `organizerId`. Public event routes must show only published events.
 
@@ -42,7 +43,7 @@ Authentication is not tenant isolation. `req.auth.organizerId` is request contex
 
 ## Included Scope
 
-* Organizer login with `OWNER` and `STAFF` roles.
+* Platform roles `ADMIN`, `OWNER`, `STAFF`, and `USER`, with organizer membership roles for owner/staff access.
 * Event and ticket-tier management.
 * Public event listing.
 * Authenticated user booking and Stripe Checkout.
@@ -53,7 +54,7 @@ Authentication is not tenant isolation. `req.auth.organizerId` is request contex
 * Kafka events for `booking.created` and `checkin.created`.
 * Basic analytics summary/read-model tables.
 * FastAPI rule-based recommendations.
-* Lightweight VPS deployment documentation and demo guide.
+* VPS deployment workflow documentation.
 
 ## Out of Scope
 
@@ -80,8 +81,8 @@ Do not add these unless a future task explicitly asks for them:
 * Messaging: Kafka
 * Recommendation service: FastAPI
 * Local runtime: Docker Compose
-* Deployment target: Ubuntu VPS with Docker Compose and Nginx
-* Production PostgreSQL target: managed Neon database
+* Deployment target: Ubuntu VPS with Docker Compose, behind an external reverse proxy such as Nginx.
+* The current production Compose file includes PostgreSQL as a container; it does not configure a managed database.
 
 ## Architecture
 
@@ -100,40 +101,27 @@ Next.js Client
 
 Use existing folders and conventions where possible.
 
-Expected backend modules:
-
-* `auth`
-* `events`
-* `ticket-tiers`
-* `bookings`
-* `payments`
-* `tickets`
-* `checkins`
-* `analytics`
-* `recommendations`
-* integrations:
-
-  * Stripe
-  * Redis
-  * Kafka
+The API currently groups code under `api/src/routes`, `controllers`, `services`, `schemas`, `utils`, and `workers`. Route/service areas include auth, organizers, users, bookings, payments, RBAC, analytics, admin, public events, and ticket check-in. Stripe, Redis, Kafka, and Prisma helpers live under `utils`; the analytics consumer and projection live under `workers`.
 
 ## Data Models
 
-Expected domain models:
+Current Prisma models:
 
-* `Organizer`
 * `User`
+* `Organizer`
+* `OrganizerMembership`
 * `Event`
 * `TicketTier`
 * `Booking`
+* `BookingItem`
 * `Payment`
+* `StripeWebhookEvent`
 * `Ticket`
-* `CheckIn`
-* `AnalyticsSummary`
+* `TicketCheckin`
+* `EventAnalytics`
+* `ProcessedDomainEvent`
 
-Use the actual Prisma schema names when implementing. If the schema uses a slightly different name, such as `TicketCheckin`, follow the existing schema instead of renaming casually.
-
-Do not rename models casually just to match this document.
+Use these exact schema names when implementing; do not rename models to match alternate terminology.
 
 ## Design Rules
 
@@ -147,9 +135,9 @@ Do not rename models casually just to match this document.
 * Payment webhook processing must be retry-safe.
 * Booking finalization must use a database transaction.
 * Tickets must be generated only after confirmed payment.
-* Check-in must use a Redis duplicate lock before updating ticket status.
-* Kafka events should be published only after successful domain state changes.
-* Analytics should use summary/read-model tables, not expensive raw dashboard queries.
+* Check-in uses a Redis duplicate-scan guard before the PostgreSQL transaction. PostgreSQL ticket status and the unique `TicketCheckin` record remain authoritative; check-in fails closed when Redis is unavailable.
+* Kafka events are published only after successful PostgreSQL transactions. There is no transactional outbox; publication failure can lose an event after the business change commits.
+* The analytics worker projects booking/check-in events into `EventAnalytics`; the `/analytics/events` read-model endpoint and public popularity flow use that projection. Overview, booking, and payment reports currently aggregate transactional tables. Keep these paths distinct when documenting or changing analytics behavior.
 * Recommendations should stay rule-based and explainable.
 * Keep `/health` endpoints simple and dependency-light.
 * Do not run migrations from Dockerfiles or health checks.
@@ -207,7 +195,7 @@ When changing frontend behavior:
 7. API marks booking as paid/confirmed.
 8. API updates sold quantity.
 9. API creates tickets.
-10. API publishes `booking.created`.
+10. The PostgreSQL transaction commits; the API then publishes `booking.created` to Kafka.
 
 Rules:
 
@@ -215,41 +203,43 @@ Rules:
 * Do not generate tickets from frontend redirects.
 * Repeated webhook delivery must not duplicate tickets or corrupt counts.
 * Quantity validation must happen before checkout and during finalization where needed.
+* Kafka publication occurs after commit and is not atomic with it; there is no transactional outbox.
 
 ## Check-In Flow
 
 1. Staff submits ticket token.
-2. API creates Redis scan lock.
-3. API validates ticket.
-4. API verifies organizer/staff scope.
-5. API marks ticket checked in.
-6. API creates check-in record.
-7. API publishes `checkin.created`.
+2. API verifies organizer/staff scope and loads the ticket within that scope.
+3. API validates that the ticket is eligible for check-in.
+4. API acquires the Redis duplicate-scan guard.
+5. A PostgreSQL transaction updates ticket status and creates the check-in record.
+6. After commit, the API publishes `checkin.created` to Kafka.
 
 Rules:
 
-* Use Redis atomic lock before updating ticket status.
+* Use Redis `SET NX` as a short-lived duplicate-scan guard before the PostgreSQL transaction.
 * Duplicate scans must return a clear error.
 * Staff must not check in tickets from another organizer.
-* Ticket status and check-in record must stay consistent.
+* PostgreSQL ticket status and the unique check-in record are durable authority and must stay consistent; the endpoint fails closed if Redis is unavailable.
+* Post-commit Kafka publication failure can leave analytics without the check-in event; there is no outbox.
 
 ## Analytics Flow
 
-1. Worker consumes `booking.created` and `checkin.created`.
-2. Worker updates summary/read-model tables.
-3. API returns analytics summary to owner.
+1. Worker consumes `booking.created` and `checkin.created` from Kafka.
+2. Worker transactionally deduplicates each event and updates `EventAnalytics`.
+3. `/analytics/events` reads that projection; other dashboard endpoints aggregate transactional data.
 
 Rules:
 
-* Analytics should be read-model based.
-* Worker handling should be safe for repeated event delivery.
-* Owner analytics routes must be tenant-scoped.
+* The projection is eventually consistent and can miss events that failed post-commit publication.
+* Worker records processed event IDs in the same PostgreSQL transaction as the projection, protecting against duplicate delivery.
+* If one event's booking events use different currencies, the worker marks the conflicting event processed and skips its projection update because `EventAnalytics` stores one currency per event.
+* Analytics scope must be resolved before querying; owner and staff results are limited to authorized organizer IDs, while admins may request platform scope.
 
 ## Recommendation Flow
 
 1. Express API gathers event/analytics data.
 2. Express API calls FastAPI recommendation service.
-3. FastAPI ranks events using simple explainable rules.
+3. FastAPI ranks by recorded all-time ticket sales, then start time and event ID for deterministic ties; it does not run trained ML.
 4. Express API returns recommendations.
 
 Rules:
@@ -262,7 +252,7 @@ Rules:
 
 The public homepage shows a small Popular Events section. Express includes published events currently in progress and published events with no start or end time, excludes suspended organizers and events with no recorded ticket sales, reads each event's `EventAnalytics.ticketsSold`, and sends only event IDs, optional start times, and ticket totals to the stateless FastAPI ranker. Events with only one time set are excluded because their running state is unclear. FastAPI sorts by ticket sales descending, then dated events by start time, then event ID for stable ties; undated events follow dated events when sales tie. Express validates returned IDs and builds public event cards without exposing sales or revenue totals.
 
-The label means popular by recorded all-time ticket sales; it is not personalized or a time-based trending score. Owner analytics and the Task 8 projection remain independent. Any future Happening Soon or Recently Added lists should query Express/PostgreSQL directly.
+The label means popular by recorded all-time ticket sales; it is not personalized or a time-based trending score. The public list uses `EventAnalytics.ticketsSold`. The `/analytics/events` endpoint exposes that all-time booking/check-in projection; overview, booking, and payment reports accept date ranges and aggregate transactional tables. Any future Happening Soon or Recently Added lists should query Express/PostgreSQL directly.
 
 ## Kafka Event Contracts
 
@@ -273,27 +263,23 @@ booking.created
 checkin.created
 ```
 
-Events should include:
-
-* `eventType`
-* `eventId`
-* `organizerId`
-* timestamp
-* relevant IDs
-* relevant metrics
+Each event uses the same envelope: `domainEventId`, `eventType`, `occurredAt`, `tenantId`, and a `data` object. `tenantId` is the organizer ID. Payload fields are event-specific:
 
 Example `booking.created`:
 
 ```json
 {
+  "domainEventId": "uuid",
   "eventType": "booking.created",
-  "bookingId": "string",
-  "eventId": "string",
-  "organizerId": "string",
-  "ticketTierId": "string",
-  "quantity": 2,
-  "amountTotal": 1000,
-  "createdAt": "ISO_DATE"
+  "occurredAt": "ISO_DATE",
+  "tenantId": "organizer-uuid",
+  "data": {
+    "bookingId": 123,
+    "eventId": "event-uuid",
+    "quantity": 2,
+    "totalAmount": "1000.00",
+    "currency": "usd"
+  }
 }
 ```
 
@@ -301,41 +287,23 @@ Example `checkin.created`:
 
 ```json
 {
+  "domainEventId": "uuid",
   "eventType": "checkin.created",
-  "checkInId": "string",
-  "ticketId": "string",
-  "eventId": "string",
-  "organizerId": "string",
-  "staffUserId": "string",
-  "createdAt": "ISO_DATE"
+  "occurredAt": "ISO_DATE",
+  "tenantId": "organizer-uuid",
+  "data": {
+    "checkInId": 456,
+    "ticketId": "ticket-uuid",
+    "eventId": "event-uuid"
+  }
 }
 ```
 
 Follow existing schema names and ID types from the repo.
 
-## Docker Compose Services
+## Runtime and Deployment References
 
-Target local services for the complete local demo:
-
-* `frontend`
-* `api`
-* `postgres`
-* `redis`
-* `kafka`
-* `recommendation-service`
-* `analytics-worker`
-
-These are target services for the complete demo. Some may not exist yet. Do not create missing services unless the current task asks for them.
-
-Target VPS services:
-
-* `api`
-* `redis`
-* `recommendation-service`
-* `analytics-worker`
-* `kafka`, if needed for the demo VPS
-
-Production PostgreSQL should use managed Neon instead of local VPS PostgreSQL.
+See the root README for local Compose setup and [`docs/deployment.md`](./deployment.md) for the VPS workflow and its limitations.
 
 ## Implementation Flow
 
@@ -344,14 +312,8 @@ Production PostgreSQL should use managed Neon instead of local VPS PostgreSQL.
 Check real files before designing the change:
 
 ```bash
-rg "<feature keyword>" api client recommendation-service analytics-worker
-```
-
-Also check relevant files such as:
-
-```bash
-find api -maxdepth 3 -type f
-find client -maxdepth 4 -type f
+rg "<feature keyword>" api client recommendation-service
+rg --files api/src client/src recommendation-service
 ```
 
 Do not assume folder structure. Use the current codebase as the source of truth.
@@ -405,7 +367,7 @@ Do not generate tickets before confirmed payment.
 
 ## 5. Update Event and Cache Behavior
 
-Use Redis for duplicate check-in prevention.
+Use Redis `SET NX` as a short-lived check-in guard; PostgreSQL remains authoritative for ticket status and the unique check-in record.
 
 Publish Kafka events only at real domain boundaries:
 
@@ -433,9 +395,9 @@ Only update analytics or recommendations if the feature affects those outputs.
 
 Analytics rules:
 
-* Use summary/read-model tables.
-* Avoid querying raw transactional tables for dashboard-heavy responses.
-* Keep tenant scope explicit.
+* `/analytics/events` and public popularity use the `EventAnalytics` projection.
+* Overview, booking, and payment reports currently aggregate transactional tables; describe their source and date range accurately.
+* Keep tenant scope explicit and resolve it before aggregate queries.
 
 Recommendation rules:
 
@@ -445,7 +407,7 @@ Recommendation rules:
 
 ## 8. Verify the Full Demo Path
 
-Use Docker Compose when checking cross-service behavior:
+Use the root README's environment, migration, and seed steps before checking cross-service behavior with Docker Compose. Stop any host-run API or client processes first to avoid port conflicts:
 
 ```bash
 docker compose up -d --build
@@ -467,80 +429,17 @@ Before marking a feature done, check:
 * Payment: Is Stripe webhook treated as the source of truth?
 * Tickets: Are tickets generated only after confirmed payment?
 * Ticket token: Is the ticket token unique and opaque?
-* Check-in: Are duplicate scans blocked with Redis?
+* Check-in: Does Redis guard duplicate scans while PostgreSQL enforces durable ticket and check-in state?
 * Events: Are Kafka events published for booking and check-in?
-* Analytics: Are summary/read-model tables updated where needed?
+* Analytics: Does each report use and document its current source, projection or transactional data?
 * Recommendations: Does FastAPI return simple rule-based results?
 * API/client: Are frontend contracts updated when backend responses change?
 * Demo: Can the feature be shown end to end without manual database edits?
 * Docs: Are local docs or demo notes updated when behavior changes?
 
-## Deployment Track
-
-Only add deployment work when the task asks for it.
-
-The target deployment shape is:
-
-* Ubuntu VPS running Docker Compose.
-* GitHub Actions builds images and pushes to Docker Hub.
-* VPS pulls images and restarts the Compose stack.
-* Nginx routes HTTPS traffic to local app ports.
-* Cloudflare manages DNS.
-* Certbot manages SSL certificates.
-* PostgreSQL uses a managed provider such as Neon.
-* Redis can run as a private Docker container.
-* Uptime Kuma monitors health endpoints.
-* Beszel monitors VPS/container resources.
-
-Do not add:
-
-* Kubernetes
-* production platform abstractions
-* real secrets
-* complex observability
-* multi-region deployment
-* cloud-native platform work
-
-## Deployment Rules
-
-* Push to `main` triggers GitHub Actions.
-* GitHub Actions builds Docker images and pushes to Docker Hub.
-* VPS pulls the latest image and restarts the Compose stack.
-* Keep production Compose files under:
-
-```txt
-/opt/apps/event-ticketing
-```
-
-* Keep `.env` only on the VPS or in GitHub Secrets.
-* Bind app containers to localhost, not a public IP.
-* Expose only SSH, HTTP, and HTTPS publicly.
-* Run Prisma migrations in production with:
-
-```bash
-prisma migrate deploy
-```
-
-* Do not use this in production:
-
-```bash
-prisma migrate dev
-```
-
-* Use Docker Hub image tags such as:
-
-```txt
-latest
-<commit-sha>
-```
-
-* Nginx routes HTTPS traffic.
-* Cloudflare manages DNS.
-* Certbot manages SSL.
-* Uptime Kuma checks `/health`.
-* Beszel monitors VPS and container resources.
-
 ## Testing Focus
+
+Add or run checks relevant to changed behavior. In this checkout, the API test script is configured but `api/tests` is absent, and the client has no test script.
 
 Prioritize tests or verification scripts for:
 
@@ -555,23 +454,6 @@ Prioritize tests or verification scripts for:
 * Kafka event publishing
 * Analytics summary updates
 * Recommendation response
-* Deployment health check
-
-## Build Order
-
-Use this order unless the active task says otherwise:
-
-1. Docker setup
-2. Database schema
-3. Core Express modules
-4. Event and ticket-tier APIs
-5. Booking and Stripe webhook
-6. Ticket and check-in flow
-7. Redis duplicate prevention
-8. Kafka and analytics worker
-9. FastAPI recommendation service
-10. VPS deployment
-11. README and demo guide
 
 ## Done Criteria
 

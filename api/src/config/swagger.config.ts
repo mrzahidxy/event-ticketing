@@ -1310,9 +1310,9 @@ const organizerPaths: OAS3Definition['paths'] = {
 const publicRecommendationPaths: OAS3Definition['paths'] = {
   '/public/recommendations/popular-events': {
     get: {
-      summary: 'List popular upcoming public events',
+      summary: 'List popular public events',
       description:
-        'Returns up to five published upcoming events from active organizers, ranked by recorded all-time ticket sales. Exact sales and revenue figures are not returned.',
+        'Returns up to five published events that are currently in progress or have no start and end dates, excluding suspended organizers and events with no recorded ticket sales. Events are ranked by recorded all-time ticket sales. Exact sales and revenue figures are not returned.',
       tags: ['Public Recommendations'],
       security: [],
       responses: {
@@ -1363,11 +1363,16 @@ const paymentPaths: OAS3Definition['paths'] = {
           description: 'Checkout session created',
         },
         400: {
-          description: 'Validation error',
+          description: 'Validation error or booking cannot be paid',
         },
         401: {
           description: 'Unauthorized',
         },
+        403: { description: 'The booking belongs to another user' },
+        404: { description: 'Booking not found' },
+        409: { description: 'Booking already has an active checkout session' },
+        500: { description: 'Stripe is not configured or checkout failed' },
+        502: { description: 'Stripe returned no checkout URL' },
       },
     },
   },
@@ -1416,7 +1421,7 @@ const ticketPaths: OAS3Definition['paths'] = {
       operationId: 'checkInTicket',
       summary: 'Validate and check in a ticket',
       description:
-        "Requires an authenticated STAFF or OWNER account. The scanned QR token is resolved within the user's organizer scope.",
+        "Requires an authenticated STAFF or OWNER account. The scanned QR token is resolved within the user's organizer scope. Redis provides a fail-closed duplicate-scan guard; PostgreSQL ticket status and the unique check-in record are authoritative.",
       tags: ['Tickets'],
       security: [{ bearerAuth: [] }],
       requestBody: {
@@ -1481,7 +1486,7 @@ const analyticsQueryParameters: SwaggerParameters = [
       type: 'string',
       format: 'date-time',
     },
-    description: 'Inclusive UTC end date. Defaults to now.',
+    description: 'Inclusive UTC end date. Defaults to now; the requested range cannot exceed 366 days.',
   },
   {
     in: 'query',
@@ -1537,7 +1542,7 @@ const analyticsPaths: OAS3Definition['paths'] = {
       summary: 'Get platform or organizer analytics overview',
       tags: ['Analytics'],
       description:
-        'Returns aggregated booking, payment, event, and user analytics for the caller scope.',
+        'Returns date-range booking, payment, and event aggregates for the caller scope.',
       security: [
         {
           bearerAuth: [],
@@ -1616,6 +1621,30 @@ const analyticsPaths: OAS3Definition['paths'] = {
       },
     },
   },
+  '/analytics/events': {
+    get: {
+      summary: 'Get event analytics projection',
+      tags: ['Analytics'],
+      description:
+        'Returns all-time worker-projected booking and check-in metrics from EventAnalytics. Admins may omit organizerId for platform scope; owners and staff are restricted to their authorized organizers.',
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        {
+          in: 'query',
+          name: 'organizerId',
+          required: false,
+          schema: { type: 'string', format: 'uuid' },
+          description: 'Optional organizer scope. Non-admin callers are constrained to their authorized organizers.',
+        },
+      ],
+      responses: {
+        200: { description: 'Event analytics projection retrieved successfully' },
+        400: { description: 'Invalid organizerId' },
+        401: { description: 'Authentication is required' },
+        403: { description: 'Organizer scope is not authorized' },
+      },
+    },
+  },
 };
 
 const swaggerDefinition: OAS3Definition = {
@@ -1682,7 +1711,7 @@ const swaggerDefinition: OAS3Definition = {
     },
     {
       name: 'Analytics',
-      description: 'Aggregated booking, payment, event, and user reporting endpoints',
+      description: 'Date-range booking, payment, and event aggregates plus the EventAnalytics projection endpoint',
     },
     {
       name: 'Public Recommendations',

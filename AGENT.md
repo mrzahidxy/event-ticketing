@@ -2,14 +2,17 @@
 
 ## Purpose
 
-This repository is a two-part implementation workspace for a **multi-tenant event ticketing MVP**:
+This repository contains a **multi-tenant event ticketing MVP** with:
 
 - `api/` contains the Express + Prisma backend
 - `client/` contains the Next.js 15 frontend
+- `recommendation-service/` contains the FastAPI popularity ranker
 
-This file defines repo-level guidance. Product and architecture context lives here:
+This file defines repo-level guidance. Service flows and implementation rules live in:
 
-- [`docs/project-context.md`](./docs/project-context.md)
+- [`docs/feature-implementation-guide.md`](./docs/feature-implementation-guide.md)
+
+Repository-specific environment and runtime constraints are in [`docs/project-context.md`](./docs/project-context.md).
 
 ## Core Rule
 
@@ -21,7 +24,7 @@ Avoid over-engineering. Make the smallest change that solves the task without br
 2. Preserve payment correctness. Stripe webhook confirmation is the source of truth for finalized bookings.
 3. Keep backend and frontend contracts aligned when behavior changes cross app boundaries.
 4. Prefer narrow, low-risk fixes over refactors or redesigns.
-5. Keep work aligned with the current MVP direction in `docs/project-context.md`.
+5. Keep work aligned with the current MVP and service boundaries in `docs/feature-implementation-guide.md`.
 
 ## Working Rules
 
