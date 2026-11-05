@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This service is the Next.js frontend for the Multi-Tenant Event Intelligence Platform. Keep changes aligned with the live product flows: owner event management, staff ticket check-in, public event browsing with authenticated `USER` ticket booking, analytics, and recommendation display.
+This service is the Next.js frontend for the multi-tenant event ticketing MVP. Keep changes aligned with the live product flows: owner/admin management, staff ticket check-in, public event browsing with authenticated `USER` ticket booking, analytics, and public popularity ranking.
 
 ## Stack
 
@@ -27,7 +27,7 @@ This service is the Next.js frontend for the Multi-Tenant Event Intelligence Pla
 
 ## Product Rules
 
-- Owner UI must stay scoped to the organizer the owner can manage.
+- Owner and admin UI must stay scoped to the organizer or platform data they can manage.
 - Staff UI must expose only check-in and assigned organizer workflows.
 - Public event UI must show only published events; checkout requires an authenticated `USER` account.
 - Booking UI should not mark payments as confirmed; Stripe webhook confirmation belongs to the API.
@@ -53,7 +53,7 @@ npm run typecheck
 npm run build
 ```
 
-Use the root Docker Compose stack for cross-service verification:
+Use the root Docker Compose stack for cross-service verification after applying migrations and seed data as described in the root README:
 
 ```bash
 docker compose up -d --build
